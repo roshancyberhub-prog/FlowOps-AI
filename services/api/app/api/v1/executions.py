@@ -1,3 +1,4 @@
+from typing import Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, Query, Request, Response
@@ -5,8 +6,10 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_session
-from app.models import ExecutionStep, Membership, WorkflowExecution
+from app.models import ApprovalRequest, ExecutionStep, Membership, WorkflowExecution
 from app.schemas.executions import (
+    ApprovalDecision,
+    ApprovalRead,
     ExecutionPage,
     ExecutionRead,
     ExecutionStatus,
@@ -14,6 +17,7 @@ from app.schemas.executions import (
     StepRead,
 )
 from app.security.permissions import ADMIN_ROLES, WRITE_ROLES, membership, require_role
+from app.services.execution_controls import cancel_execution, decide_approval, retry_execution
 from app.services.executions import get_execution, request_execution
 
 router = APIRouter(tags=["executions"])
@@ -114,3 +118,73 @@ async def steps(
         .where(ExecutionStep.execution_id == execution_id)
     )
     return {"items": items, "total": total or 0, "page": page, "page_size": 100}
+
+
+@router.post("/executions/{execution_id}/cancel", response_model=ExecutionRead)
+async def cancel(
+    execution_id: UUID,
+    request: Request,
+    member: Membership = Depends(membership),
+    session: AsyncSession = Depends(get_session),
+) -> WorkflowExecution:
+    require_role(member, WRITE_ROLES)
+    return await cancel_execution(session, member, execution_id, request.state.request_id)
+
+
+@router.post("/executions/{execution_id}/retry", response_model=ExecutionRead)
+async def retry(
+    execution_id: UUID,
+    request: Request,
+    member: Membership = Depends(membership),
+    session: AsyncSession = Depends(get_session),
+) -> WorkflowExecution:
+    require_role(member, WRITE_ROLES)
+    return await retry_execution(session, member, execution_id, request.state.request_id)
+
+
+@router.get("/approvals")
+async def approvals(
+    member: Membership = Depends(membership),
+    session: AsyncSession = Depends(get_session),
+    page: int = Query(default=1, ge=1),
+    status: Literal["pending", "approved", "rejected", "expired", "cancelled"] | None = None,
+) -> dict:
+    conditions = [ApprovalRequest.organization_id == member.organization_id]
+    if status:
+        conditions.append(ApprovalRequest.status == status)
+    rows = await session.scalars(
+        select(ApprovalRequest)
+        .where(*conditions)
+        .order_by(ApprovalRequest.requested_at.desc(), ApprovalRequest.id)
+        .offset((page - 1) * 25)
+        .limit(25)
+    )
+    total = await session.scalar(
+        select(func.count()).select_from(ApprovalRequest).where(*conditions)
+    )
+    return {
+        "items": [ApprovalRead.model_validate(row) for row in rows],
+        "total": total or 0,
+        "page": page,
+        "page_size": 25,
+    }
+
+
+@router.post("/approvals/{approval_id}/{decision}", response_model=ApprovalRead)
+async def decide(
+    approval_id: UUID,
+    decision: Literal["approve", "reject"],
+    data: ApprovalDecision,
+    request: Request,
+    member: Membership = Depends(membership),
+    session: AsyncSession = Depends(get_session),
+) -> ApprovalRequest:
+    require_role(member, ADMIN_ROLES)
+    return await decide_approval(
+        session,
+        member,
+        approval_id,
+        "approved" if decision == "approve" else "rejected",
+        data,
+        request.state.request_id,
+    )

@@ -15,6 +15,11 @@ class Schedule(StrictModel):
     interval_minutes: int = Field(default=60, ge=1, le=10080)
 
 
+class Approval(StrictModel):
+    kind: Literal["email", "continue"] = "email"
+    message: str = Field(default="Review before continuing.", min_length=1, max_length=1000)
+
+
 class Score(StrictModel):
     scoring_profile: str = Field(default="default", max_length=80)
 
@@ -86,7 +91,7 @@ SPECS = [
     NodeSpec(
         "action.generate_email_draft", "Generate outreach draft", Draft, "action", "ai", 60, True
     ),
-    NodeSpec("action.request_approval", "Request approval", Empty, "action", "approval"),
+    NodeSpec("action.request_approval", "Request approval", Approval, "action", "approval"),
     NodeSpec(
         "action.send_email",
         "Send approved email",

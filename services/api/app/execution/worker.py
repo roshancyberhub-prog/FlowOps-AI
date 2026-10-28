@@ -1,0 +1,109 @@
+import asyncio
+from datetime import timedelta
+from uuid import UUID
+
+from celery import Celery
+from sqlalchemy import select
+from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+from sqlalchemy.pool import NullPool
+
+from app.core.config import get_settings
+from app.db.base import now
+from app.execution.engine import process_execution
+from app.models import OutboxEntry, WorkerHeartbeat, WorkflowExecution
+
+settings = get_settings()
+celery_app = Celery("flowops", broker=str(settings.redis_url))
+celery_app.conf.update(
+    task_serializer="json",
+    accept_content=["json"],
+    result_serializer="json",
+    task_ignore_result=True,
+    task_acks_late=True,
+    task_reject_on_worker_lost=True,
+    worker_prefetch_multiplier=1,
+    broker_connection_retry_on_startup=True,
+    broker_connection_timeout=3,
+    broker_transport_options={
+        "visibility_timeout": 300,
+        "socket_connect_timeout": 3,
+        "socket_timeout": 3,
+    },
+    task_soft_time_limit=120,
+    task_time_limit=150,
+    beat_schedule={"dispatch-outbox": {"task": "flowops.dispatch", "schedule": 3.0}},
+)
+
+
+def worker_sessions() -> async_sessionmaker:
+    # Celery invokes asyncio.run per task: never pool asyncpg across event loops.
+    return async_sessionmaker(
+        create_async_engine(str(settings.database_url), poolclass=NullPool), expire_on_commit=False
+    )
+
+
+async def dispatch_pending() -> None:
+    factory = worker_sessions()
+    async with factory() as session:
+        await session.execute(
+            insert(WorkerHeartbeat)
+            .values(worker_name="dispatcher", last_seen=now())
+            .on_conflict_do_update(index_elements=["worker_name"], set_={"last_seen": now()})
+        )
+        # A published message can be lost by the broker. Republish overdue runs;
+        # row locks and execution leases make duplicate deliveries harmless.
+        stale = await session.scalars(
+            select(WorkflowExecution)
+            .where(
+                WorkflowExecution.status.in_(["queued", "retrying", "running"]),
+                WorkflowExecution.next_run_at < now() - timedelta(seconds=60),
+                (WorkflowExecution.lease_until.is_(None)) | (WorkflowExecution.lease_until < now()),
+            )
+            .with_for_update(skip_locked=True)
+            .limit(100)
+        )
+        for run in stale:
+            latest = await session.scalar(
+                select(OutboxEntry)
+                .where(OutboxEntry.execution_id == run.id)
+                .order_by(OutboxEntry.created_at.desc())
+                .limit(1)
+            )
+            if latest and latest.published_at is not None:
+                latest.published_at = None
+                latest.available_at = now()
+                run.next_run_at = now()
+        await session.commit()
+        rows = await session.scalars(
+            select(OutboxEntry)
+            .where(OutboxEntry.published_at.is_(None), OutboxEntry.available_at <= now())
+            .order_by(OutboxEntry.available_at)
+            .with_for_update(skip_locked=True)
+            .limit(25)
+        )
+        for entry in rows:
+            entry.attempt_count += 1
+            try:
+                await asyncio.to_thread(
+                    celery_app.send_task,
+                    "flowops.execute",
+                    args=[str(entry.execution_id)],
+                    retry=False,
+                )
+                entry.published_at = now()
+                entry.last_error = None
+            except Exception:
+                entry.last_error = "BROKER_UNAVAILABLE"
+                entry.available_at = now() + timedelta(seconds=10)
+        await session.commit()
+
+
+@celery_app.task(name="flowops.dispatch")
+def dispatch() -> None:
+    asyncio.run(dispatch_pending())
+
+
+@celery_app.task(name="flowops.execute")
+def execute(execution_id: str) -> None:
+    asyncio.run(process_execution(worker_sessions(), UUID(execution_id)))

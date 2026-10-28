@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import Literal, Self
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.schemas.leads import LeadCreate
 
@@ -75,3 +75,26 @@ class StepRead(BaseModel):
     started_at: datetime
     completed_at: datetime | None
     duration_ms: int | None
+
+
+class ApprovalRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: UUID
+    execution_id: UUID
+    node_id: str
+    kind: str
+    status: str
+    payload: dict
+    payload_hash: str
+    revision: int
+    requested_at: datetime
+    expires_at: datetime
+    decided_at: datetime | None
+    decision_comment: str
+
+
+class ApprovalDecision(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    revision: int = Field(ge=1)
+    payload_hash: str = Field(pattern=r"^[a-f0-9]{64}$")
+    comment: str = Field(default="", max_length=1000)

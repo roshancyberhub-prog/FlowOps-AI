@@ -44,6 +44,26 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
+  worker:
+    build: ./services/api
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      REDIS_URL: redis://redis:6379/0
+    command: [".venv/bin/celery", "-A", "app.execution.worker:celery_app", "worker", "--loglevel=WARNING", "--concurrency=2"]
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      redis: { condition: service_healthy }
+  scheduler:
+    build: ./services/api
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      REDIS_URL: redis://redis:6379/0
+    command: [".venv/bin/celery", "-A", "app.execution.worker:celery_app", "beat", "--loglevel=WARNING", "--schedule=/tmp/celerybeat-schedule"]
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      redis: { condition: service_healthy }
   web:
     build: ./apps/web
     ports: ["127.0.0.1:3000:3000"]

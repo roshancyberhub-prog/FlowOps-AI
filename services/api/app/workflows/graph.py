@@ -102,6 +102,7 @@ def validate_graph(data: dict | Graph, role: str) -> ValidationResult:
         types = {nodes[parent].type for parent in ancestors[key]}
         if (
             nodes[key].type == "action.request_approval"
+            and nodes[key].config.get("kind", "email") == "email"
             and "action.generate_email_draft" not in types
         ):
             issue("DRAFT_REQUIRED", "Generate an outreach draft before requesting approval.", key)
@@ -115,7 +116,12 @@ def validate_graph(data: dict | Graph, role: str) -> ValidationResult:
                 default=-1,
             )
             latest_approval = max(
-                (ranks[p] for p in ancestors[key] if nodes[p].type == "action.request_approval"),
+                (
+                    ranks[p]
+                    for p in ancestors[key]
+                    if nodes[p].type == "action.request_approval"
+                    and nodes[p].config.get("kind", "email") == "email"
+                ),
                 default=-1,
             )
             if latest_approval <= latest_draft:
