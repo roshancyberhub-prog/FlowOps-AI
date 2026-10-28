@@ -37,3 +37,8 @@ Implemented: Next.js sign-in/registration, workspace creation/switching, live-da
 Run 40664524685 verified 19 backend tests, migration upgrade/check/downgrade/upgrade, Ruff, Mypy, frontend lint/type checks, production npm audit, Docker Compose configuration/build/readiness, and two Playwright browser tests. The complete browser journey includes account/workspace creation, lead persistence after reload, duplicate validation, edit/archive/restore, separate workspace views and logout. Desktop/mobile screenshots are retained in the run artifacts. A local standalone-server smoke test also returned 200 for the login page and stylesheet.
 
 Next: Milestone 2 graph schema/registry, validation, draft/version APIs, templates and React Flow. Execution is a later milestone and will not be represented as working before the worker exists.
+
+
+## Responsive finish gate
+
+GitHub Actions run 40667370206 passed the backend suite, Docker stack and browser journeys after an additional mobile geometry assertion. A 390px viewport now has a 390px document width; the lead table scrolls inside its own container. The root cause was an absolutely positioned screen-reader label without a containing block inside the scroll region. Request logging now uses structured method/path/status/request IDs and omits query values; its new privacy regression test passes locally.

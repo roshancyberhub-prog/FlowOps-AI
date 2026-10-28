@@ -21,6 +21,8 @@ from app.security.http import RequestGuard
 handler = logging.StreamHandler()
 handler.setFormatter(JsonFormatter("%(asctime)s %(levelname)s %(name)s %(message)s"))
 logging.getLogger("flowops").addHandler(handler)
+logging.getLogger("flowops").setLevel(logging.INFO)
+logging.getLogger("flowops").propagate = False
 
 
 @asynccontextmanager
@@ -80,11 +82,12 @@ async def request_context(
     if response is None:
         try:
             response = await call_next(request)
-        except Exception:
+        except Exception as exc:
             logging.getLogger("flowops").error(
                 "request_failed",
                 extra={
                     "request_id": request.state.request_id,
+                    "error_type": type(exc).__name__,
                 },
             )
             response = error(request, 500, "INTERNAL_ERROR", "Unable to complete this request.")
@@ -93,6 +96,15 @@ async def request_context(
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["Referrer-Policy"] = "same-origin"
     response.headers["Cache-Control"] = "no-store"
+    logging.getLogger("flowops").info(
+        "request_completed",
+        extra={
+            "method": request.method,
+            "path": request.url.path,
+            "status": response.status_code,
+            "request_id": request.state.request_id,
+        },
+    )
     return response
 
 

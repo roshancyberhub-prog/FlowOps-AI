@@ -6,6 +6,10 @@ Development follows [CHATGPT.md](CHATGPT.md). See [requirements](docs/REQUIREMEN
 
 The foundation includes revocable session authentication, workspaces and membership roles, persistent lead management, duplicate protection, and audit history. Workflow editing, background execution, AI processing and integrations are upcoming milestones. No live deployment is available yet.
 
+![Verified lead management interface](docs/screenshots/leads-desktop.png)
+
+Desktop and mobile screenshots come from the real Docker-backed browser journey in CI.
+
 ## Local setup
 
 Install Docker with Compose v2, then run from the repository root:
@@ -32,7 +36,7 @@ cd services/api
 uv sync --frozen
 # Export DATABASE_URL, REDIS_URL and WEB_ORIGIN from your root .env.
 uv run alembic upgrade head
-uv run uvicorn app.main:app --reload --port 8000 --no-proxy-headers
+uv run uvicorn app.main:app --reload --port 8000 --no-proxy-headers --no-access-log
 ```
 
 ```bash
