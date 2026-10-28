@@ -142,6 +142,7 @@ export function Workspace({ children }: { children: React.ReactNode }) {
     orgs.data.find((org) => org.id === selected) ?? orgs.data[0];
   const navigation = [
     { href: "/", label: "Overview", icon: LayoutDashboard },
+    { href: "/workflows", label: "Workflows", icon: GitBranch },
     { href: "/leads", label: "Leads", icon: Users },
     { href: "/team", label: "Team & workspace", icon: UsersRound },
     ...(organization.role === "owner" || organization.role === "admin"

@@ -47,3 +47,8 @@ GitHub Actions run 40667370206 passed the backend suite, Docker stack and browse
 ## Milestone 2 backend checkpoint (in progress)
 
 The workflow graph schema, node configuration registry, deterministic topology validation, draft/version APIs, stale-revision protection, templates, and a PostgreSQL immutable-version trigger are implemented on the workflow feature branch. Local unit/API checks pass, including approval bypass and stale-draft approval rejection. PostgreSQL workflow integration/migration checks are pending CI. The React Flow interface and milestone acceptance remain incomplete. No background workflow execution is implemented or claimed.
+
+
+## Milestone 2 editor checkpoint
+
+The React Flow interface is connected to the workflow APIs: template creation, node palette/drop, connections, editable configuration, save/validate/publish, immutable version inspection and unsaved-change warnings. The workflow backend passed GitHub Actions run 40670074327, including immutable-version and revision-conflict tests. Frontend lint, type checks, production build and npm audit pass locally; the new workflow browser journey is pending CI. Execution controls remain intentionally absent until the real worker exists.
