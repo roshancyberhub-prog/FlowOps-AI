@@ -49,6 +49,9 @@ def validate_graph(data: dict | Graph, role: str) -> ValidationResult:
     outgoing: dict[str, list[str]] = {key: [] for key in nodes}
     incoming: dict[str, list[str]] = {key: [] for key in nodes}
     handles: set[tuple[str, str]] = set()
+    edge_ids = [edge.id for edge in graph.edges if edge.id is not None]
+    if len(set(edge_ids)) != len(edge_ids):
+        issue("DUPLICATE_EDGE", "Each connection must have a unique ID.")
     for edge in graph.edges:
         if edge.source not in nodes or edge.target not in nodes:
             issue("UNKNOWN_EDGE_NODE", "Connections must reference existing nodes.")

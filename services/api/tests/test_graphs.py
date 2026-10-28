@@ -96,3 +96,10 @@ def test_numeric_condition_rejects_a_text_comparison_value():
     data["edges"][1]["sourceHandle"] = "true"
     data["nodes"][1]["config"] = {"field": "lead.score", "operator": "gte", "value": "wrong"}
     assert not validate_graph(data, "owner").valid
+
+
+def test_duplicate_edge_ids_are_rejected():
+    data = graph(["trigger.manual", "action.validate_lead", "action.record_result"])
+    for edge in data["edges"]:
+        edge["id"] = "same-edge"
+    assert not validate_graph(data, "owner").valid
