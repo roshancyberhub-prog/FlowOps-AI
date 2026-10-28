@@ -160,6 +160,7 @@ export function Workspace({ children }: { children: React.ReactNode }) {
   const activeNavigation = navigation.find(
     (item) =>
       item.href === pathname ||
+      (item.href === "/leads" && pathname.startsWith("/drafts/")) ||
       (item.href !== "/" && pathname.startsWith(`${item.href}/`)),
   );
   return (

@@ -57,6 +57,9 @@ async def setup_outreach(client, mode="test"):
         json={"expected_revision": workflow["revision"]},
     )
     assert published.status_code == 200, published.text
+    choices = await client.get("/api/v1/leads/" + lead["id"] + "/draft-workflows", headers=headers)
+    assert choices.status_code == 200, choices.text
+    assert choices.json()["items"][0]["workflow_id"] == workflow["id"]
     response = await client.post(
         "/api/v1/leads/" + lead["id"] + "/drafts",
         headers={**headers, "Idempotency-Key": str(uuid4())},

@@ -6,13 +6,21 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.db.session import get_session
-from app.models import EmailDelivery, EmailDraft, Membership, WorkflowExecution
+from app.models import (
+    EmailDelivery,
+    EmailDraft,
+    Membership,
+    Workflow,
+    WorkflowExecution,
+    WorkflowVersion,
+)
 from app.schemas.executions import ExecutionRead, RunRequest
 from app.schemas.outreach import DeliveryRead, DraftEdit, DraftRead, DraftRunRequest
 from app.security.permissions import WRITE_ROLES, membership, require_role
 from app.services.drafts import edit_draft, get_draft
 from app.services.executions import request_execution
 from app.services.leads import get_lead
+from app.workflows.graph import validate_graph
 
 router = APIRouter(tags=["outreach drafts"])
 
@@ -120,11 +128,14 @@ async def deliveries(
     member: Membership = Depends(membership),
     session: AsyncSession = Depends(get_session),
     execution_id: UUID | None = None,
+    draft_id: UUID | None = None,
     page: int = Query(1, ge=1),
 ) -> dict:
     conditions = [EmailDelivery.organization_id == member.organization_id]
     if execution_id:
         conditions.append(EmailDelivery.execution_id == execution_id)
+    if draft_id:
+        conditions.append(EmailDelivery.draft_id == draft_id)
     rows = await session.scalars(
         select(EmailDelivery)
         .where(*conditions)
@@ -135,6 +146,52 @@ async def deliveries(
     total = await session.scalar(select(func.count()).select_from(EmailDelivery).where(*conditions))
     return {
         "items": [DeliveryRead.model_validate(row) for row in rows],
+        "total": total or 0,
+        "page": page,
+        "page_size": 25,
+    }
+
+
+@router.get("/leads/{lead_id}/draft-workflows")
+async def draft_workflows(
+    lead_id: UUID,
+    member: Membership = Depends(membership),
+    session: AsyncSession = Depends(get_session),
+    page: int = Query(1, ge=1),
+) -> dict:
+    await get_lead(session, member.organization_id, lead_id)
+    conditions = [
+        Workflow.organization_id == member.organization_id,
+        Workflow.status == "active",
+        WorkflowVersion.graph_definition["nodes"].contains(
+            [{"type": "action.generate_email_draft"}]
+        ),
+    ]
+    rows = await session.execute(
+        select(Workflow, WorkflowVersion)
+        .join(WorkflowVersion, Workflow.current_version_id == WorkflowVersion.id)
+        .where(*conditions)
+        .order_by(Workflow.updated_at.desc(), Workflow.id)
+        .offset((page - 1) * 25)
+        .limit(25)
+    )
+    total = await session.scalar(
+        select(func.count())
+        .select_from(Workflow)
+        .join(WorkflowVersion, Workflow.current_version_id == WorkflowVersion.id)
+        .where(*conditions)
+    )
+    return {
+        "items": [
+            {
+                "workflow_id": workflow.id,
+                "name": workflow.name,
+                "version_id": version.id,
+                "version_number": version.version_number,
+                "can_run": validate_graph(version.graph_definition, member.role).valid,
+            }
+            for workflow, version in rows
+        ],
         "total": total or 0,
         "page": page,
         "page_size": 25,

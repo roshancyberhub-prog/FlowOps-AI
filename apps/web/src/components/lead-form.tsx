@@ -8,6 +8,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { X } from "lucide-react";
 import { api, type Lead } from "@/lib/api";
 import { useWorkspace } from "@/components/workspace";
+import { LeadOutreach } from "@/features/outreach/lead-outreach";
 import { LeadScoring } from "@/features/leads/lead-scoring";
 import { Button } from "@/components/ui/button";
 
@@ -113,7 +114,11 @@ export function LeadForm({
         </button>
       </div>
       <form
-        onSubmit={form.handleSubmit((data) => save.mutate(data))}
+        onSubmit={
+          readOnly
+            ? (event) => event.preventDefault()
+            : form.handleSubmit((data) => save.mutate(data))
+        }
         className="p-6"
       >
         <div className="grid gap-5 sm:grid-cols-2">
@@ -173,7 +178,12 @@ export function LeadForm({
             {save.error.message}
           </p>
         )}
-        {readOnly && lead && <LeadScoring lead={lead} />}
+        {readOnly && lead && (
+          <>
+            <LeadScoring lead={lead} />
+            <LeadOutreach lead={lead} />
+          </>
+        )}
         <div className="mt-7 flex justify-end gap-3">
           <Button type="button" variant="outline" onClick={onClose}>
             {readOnly ? "Close" : "Cancel"}

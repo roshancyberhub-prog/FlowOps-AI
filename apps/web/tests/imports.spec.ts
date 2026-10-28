@@ -1,9 +1,9 @@
 import { expect, test } from "@playwright/test";
 
-test("import a mapped CSV outside the request and inspect every record result", async ({
+test("import, score, review and simulate protected outreach through separate workers", async ({
   page,
 }, testInfo) => {
-  test.setTimeout(90000);
+  test.setTimeout(180000);
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
   await page.setViewportSize({ width: 1440, height: 1100 });
@@ -27,16 +27,35 @@ test("import a mapped CSV outside the request and inspect every record result", 
   await page
     .getByRole("button", { name: "Create workspace", exact: true })
     .click();
+  await page.getByRole("link", { name: "Workflows", exact: true }).click();
+  await page.getByRole("button", { name: "New workflow", exact: true }).click();
+  await page
+    .getByLabel("Workflow name", { exact: true })
+    .fill("Reviewed lead outreach");
+  await page
+    .getByLabel("Starting template", { exact: true })
+    .selectOption("outreach");
+  await page
+    .getByRole("button", { name: "Create workflow", exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: "Publish version", exact: true })
+    .click();
+  await expect(
+    page.getByRole("status", { name: "Workflow update" }),
+  ).toHaveText("Version 1 published.");
   await page.getByRole("link", { name: "CSV imports", exact: true }).click();
   const csv =
-    "Full Name,Email,Company\nBuyer One,buyer-one@example.com,Example Co\nBuyer Two,buyer-two@example.com,Example Tools\nInvalid,not-an-email,Example Co\nDuplicate,BUYER-ONE@example.com,Example Co\n";
-  await page
-    .getByLabel("CSV file", { exact: true })
-    .setInputFiles({
-      name: "fictional-leads.csv",
-      mimeType: "text/csv",
-      buffer: Buffer.from(csv),
-    });
+    "Full Name,Email,Company,Job Title,Industry,Company Size,Website\n" +
+    "Buyer One,buyer-one@example.com,Example Co,Founder,Software,11-50,https://example.com\n" +
+    "Buyer Two,buyer-two@example.com,Example Tools,Director,Technology,51-200,https://example.org\n" +
+    "Invalid,not-an-email,Example Co,Analyst,Software,11-50,\n" +
+    "Duplicate,BUYER-ONE@example.com,Example Co,Founder,Software,11-50,https://example.com\n";
+  await page.getByLabel("CSV file", { exact: true }).setInputFiles({
+    name: "fictional-leads.csv",
+    mimeType: "text/csv",
+    buffer: Buffer.from(csv),
+  });
   await page
     .getByRole("button", { name: "Preview columns", exact: true })
     .click();
@@ -89,5 +108,124 @@ test("import a mapped CSV outside the request and inspect every record result", 
     page.getByRole("button", { name: "Buyer Two", exact: true }),
   ).toBeVisible();
   await expect(page.locator("tbody tr")).toHaveCount(2);
+  await page.setViewportSize({ width: 1440, height: 1100 });
+  await page.getByRole("link", { name: "Approvals", exact: true }).click();
+  await expect(
+    page.getByRole("heading", { name: "Review email draft", exact: true }),
+  ).toHaveCount(2, { timeout: 60000 });
+  await expect(
+    page.getByText("Mock AI draft", { exact: false }).first(),
+  ).toBeVisible();
+  const org = await page.evaluate(() =>
+    localStorage.getItem("flowops.workspace"),
+  );
+  expect(org).toBeTruthy();
+  const headers = { "X-Organization-ID": org! };
+  const pending = (
+    await (
+      await page.request.get("/api/v1/approvals?status=pending", { headers })
+    ).json()
+  ).items;
+  const first = pending.find(
+    (item: { payload: { draft: { recipient: string } } }) =>
+      item.payload.draft.recipient === "buyer-one@example.com",
+  );
+  const second = pending.find(
+    (item: { payload: { draft: { recipient: string } } }) =>
+      item.payload.draft.recipient === "buyer-two@example.com",
+  );
+  expect(first).toBeTruthy();
+  expect(second).toBeTruthy();
+  await page.screenshot({
+    path: testInfo.outputPath("mock-outreach-approvals.png"),
+    fullPage: true,
+  });
+  await page
+    .getByRole("article")
+    .filter({ hasText: "buyer-one@example.com" })
+    .getByRole("link", { name: /View or edit draft/ })
+    .click();
+  await expect(
+    page.getByRole("heading", { name: "Outreach draft", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByText("Mock AI output", { exact: false }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Edit draft", exact: true }).click();
+  await page
+    .getByLabel("Subject", { exact: true })
+    .fill("Reviewed follow-up for Example Co");
+  await page
+    .getByLabel("Message body", { exact: true })
+    .fill(
+      "Hi Buyer,\n\nThis fictional message was reviewed for the FlowOps AI demonstration.\n\nBest regards",
+    );
+  await page
+    .getByRole("button", { name: "Save draft revision", exact: true })
+    .click();
+  await expect(page.getByRole("status")).toContainText("Draft revision saved.");
+  await page.screenshot({
+    path: testInfo.outputPath("reviewed-mock-draft.png"),
+    fullPage: true,
+  });
+  const stale = await page.request.post(
+    `/api/v1/approvals/${first.id}/approve`,
+    {
+      headers,
+      data: { revision: first.revision, payload_hash: first.payload_hash },
+    },
+  );
+  expect(stale.status()).toBe(409);
+  await page
+    .getByRole("link", { name: "Review approval", exact: true })
+    .click();
+  const firstCard = page
+    .getByRole("article")
+    .filter({ hasText: "buyer-one@example.com" });
+  await expect(firstCard).toContainText("Reviewed follow-up for Example Co");
+  await expect(firstCard).toContainText("Revision 2");
+  await firstCard
+    .getByRole("button", { name: "Approve and continue", exact: true })
+    .click();
+  await expect(firstCard).toHaveCount(0);
+  await page
+    .getByRole("article")
+    .filter({ hasText: "buyer-two@example.com" })
+    .getByRole("button", { name: "Reject", exact: true })
+    .click();
+  await expect(
+    page.getByRole("heading", { name: "No approvals to review.", exact: true }),
+  ).toBeVisible();
+  await page.goto(`/executions/${first.execution_id}`);
+  await expect(page.getByTestId("execution-status")).toHaveText("Succeeded", {
+    timeout: 45000,
+  });
+  await expect(page.getByText("Succeeded", { exact: true })).toHaveCount(10);
+  await expect(
+    page.getByText("Mock receipt · No external email was sent.", {
+      exact: true,
+    }),
+  ).toBeVisible();
+  await page.screenshot({
+    path: testInfo.outputPath("mock-outreach-completed.png"),
+    fullPage: true,
+  });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect
+    .poll(() => page.evaluate(() => document.documentElement.scrollWidth))
+    .toBeLessThanOrEqual(390);
+  await page.screenshot({
+    path: testInfo.outputPath("mock-outreach-mobile.png"),
+    fullPage: true,
+  });
+  await page.goto(`/executions/${second.execution_id}`);
+  await expect(page.getByTestId("execution-status")).toHaveText("Cancelled");
+  await expect(
+    page.getByText("No delivery receipt has been recorded.", { exact: true }),
+  ).toBeVisible();
+  await page.getByRole("link", { name: "Leads", exact: true }).click();
+  await expect(
+    page.getByRole("row").filter({ hasText: "buyer-one@example.com" }),
+  ).toContainText("80/100");
   expect(errors).toEqual([]);
 });

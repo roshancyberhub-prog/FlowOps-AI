@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { DeliveryHistory } from "@/features/outreach/delivery-history";
 import { api } from "@/lib/api";
 import {
   ended,
@@ -264,6 +265,13 @@ export default function ExecutionDetail() {
               </>
             )}
           </section>
+          <DeliveryHistory
+            executionId={id}
+            active={
+              !ended(run.data.status) &&
+              run.data.status !== "waiting_for_approval"
+            }
+          />
         </>
       )}
     </>

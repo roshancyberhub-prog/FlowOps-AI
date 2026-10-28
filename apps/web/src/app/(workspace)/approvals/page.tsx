@@ -114,6 +114,7 @@ function ApprovalCard({ approval }: { approval: Approval }) {
   const allowed = ["owner", "admin"].includes(organization.role);
   const draft = approval.payload.draft as
     | {
+        id?: string;
         subject?: string;
         body?: string;
         recipient?: string;
@@ -159,6 +160,14 @@ function ApprovalCard({ approval }: { approval: Approval }) {
           <h3 className="mt-3 break-words font-semibold">{draft.subject}</h3>
           <p className="mt-3 whitespace-pre-wrap break-words">{draft.body}</p>
         </div>
+      )}
+      {draft?.id && (
+        <Link
+          href={`/drafts/${draft.id}`}
+          className="mr-5 mt-4 inline-block text-sm font-semibold text-teal-800 hover:underline"
+        >
+          View or edit draft →
+        </Link>
       )}
       <Link
         href={`/executions/${approval.execution_id}`}
