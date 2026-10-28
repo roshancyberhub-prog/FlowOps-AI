@@ -1,0 +1,48 @@
+name: Quality checks
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  api:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: flowops
+          POSTGRES_PASSWORD: flowops
+          POSTGRES_DB: flowops_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U flowops -d flowops_test"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      APP_ENV: test
+      DATABASE_URL: postgresql+asyncpg://flowops:flowops@localhost:5432/flowops_test
+      REDIS_URL: redis://localhost:6379/15
+    defaults:
+      run:
+        working-directory: services/api
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.13.4"
+          python-version: "3.12"
+      - run: uv sync --frozen
+      - run: uv run ruff check .
+      - run: uv run ruff format --check .
+      - run: uv run mypy app
+      - run: uv run alembic upgrade head
+      - run: uv run alembic check
+      - run: uv run pytest -q
+      - run: uv run alembic downgrade base
+      - run: uv run alembic upgrade head

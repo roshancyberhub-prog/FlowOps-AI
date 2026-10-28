@@ -19,3 +19,9 @@ Status reflects verified behavior only. Follow CHATGPT.md in milestone order.
 ## Initial inspection
 
 The GitHub repository was empty on 2026-10-28. Node 24 and Python 3.12 are available. PostgreSQL, Redis and Docker were not preinstalled. GitHub connector access permits repository writes; native HTTPS git lacks credentials, so publication uses the connected GitHub Git Data API. No deployment or external provider has been configured or verified.
+
+## Foundation backend checkpoint
+
+Implemented: FastAPI Users database sessions (login/logout), workspace creation and membership roles, scoped lead CRUD/search/pagination, normalized duplicate protection, audit events, request limits, Redis rate limiting, origin checks and health endpoints. The initial Alembic migration defines six application tables.
+
+Verified locally: 15 tests without PostgreSQL, Ruff lint/format, Mypy, dependency lock consistency, and offline PostgreSQL migration generation. Redis was run alongside the tests. Database persistence and cross-tenant integration tests are configured in GitHub Actions and are pending execution. The foundation milestone remains incomplete.
