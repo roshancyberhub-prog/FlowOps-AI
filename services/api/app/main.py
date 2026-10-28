@@ -13,6 +13,7 @@ from starlette.responses import JSONResponse, Response
 
 from app.api.v1.leads import router as leads_router
 from app.api.v1.organizations import router as organizations_router
+from app.api.v1.workflows import router as workflows_router
 from app.core.config import get_settings
 from app.db.session import engine
 from app.security.auth import UserCreate, UserRead, backend, users
@@ -38,6 +39,7 @@ app.include_router(users.get_register_router(UserRead, UserCreate), prefix="/api
 app.include_router(users.get_auth_router(backend), prefix="/api/v1/auth/session")
 app.include_router(organizations_router, prefix="/api/v1")
 app.include_router(leads_router, prefix="/api/v1")
+app.include_router(workflows_router, prefix="/api/v1")
 
 
 def error(
@@ -58,6 +60,14 @@ def error(
 
 @app.exception_handler(HTTPException)
 async def http_error(request: Request, exc: HTTPException) -> JSONResponse:
+    if isinstance(exc.detail, dict):
+        return error(
+            request,
+            exc.status_code,
+            str(exc.detail.get("code", f"HTTP_{exc.status_code}")),
+            str(exc.detail.get("message", exc.detail.get("reason", "Request failed."))),
+            exc.detail.get("details", []),
+        )
     message = exc.detail if isinstance(exc.detail, str) else "Request failed."
     return error(request, exc.status_code, f"HTTP_{exc.status_code}", message)
 

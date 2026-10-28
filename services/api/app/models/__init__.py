@@ -81,3 +81,37 @@ class AuditLog(Base):
     resource_id: Mapped[str] = mapped_column(String(100))
     correlation_id: Mapped[str] = mapped_column(String(36))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now, index=True)
+
+
+class Workflow(Base):
+    __tablename__ = "workflows"
+    __table_args__ = (
+        CheckConstraint("status IN ('draft','active','paused','archived')", name="workflow_status"),
+    )
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    organization_id: Mapped[UUID] = mapped_column(ForeignKey("organizations.id"), index=True)
+    name: Mapped[str] = mapped_column(String(150))
+    description: Mapped[str] = mapped_column(String(1000), default="")
+    status: Mapped[str] = mapped_column(String(20), default="draft", index=True)
+    draft_graph: Mapped[dict] = mapped_column(JSONB)
+    current_version_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("workflow_versions.id", use_alter=True, name="fk_workflow_current_version")
+    )
+    version_number: Mapped[int] = mapped_column(default=0)
+    revision: Mapped[int] = mapped_column(default=1)
+    created_by: Mapped[UUID] = mapped_column(ForeignKey("users.id"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=now, onupdate=now, index=True
+    )
+
+
+class WorkflowVersion(Base):
+    __tablename__ = "workflow_versions"
+    __table_args__ = (UniqueConstraint("workflow_id", "version_number"),)
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    workflow_id: Mapped[UUID] = mapped_column(ForeignKey("workflows.id"), index=True)
+    version_number: Mapped[int]
+    graph_definition: Mapped[dict] = mapped_column(JSONB)
+    created_by: Mapped[UUID] = mapped_column(ForeignKey("users.id"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)

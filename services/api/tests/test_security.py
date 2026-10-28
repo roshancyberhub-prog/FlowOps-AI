@@ -3,6 +3,8 @@ from httpx import ASGITransport, AsyncClient
 
 from app.main import app
 
+pytestmark = pytest.mark.usefixtures("isolate_rate_limit_keys")
+
 
 async def test_cross_site_mutation_is_rejected():
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
@@ -35,6 +37,11 @@ async def test_large_request_is_rejected_before_parsing():
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         response = await client.post("/api/v1/leads", content=b"x" * (1024 * 1024 + 1))
     assert response.status_code == 413
+
+
+async def test_workflows_require_authentication():
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        assert (await client.get("/api/v1/workflows")).status_code == 401
 
 
 async def test_authentication_rate_limit_is_enforced():

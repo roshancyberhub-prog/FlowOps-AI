@@ -10,7 +10,7 @@ os.environ.setdefault(
 os.environ.setdefault("REDIS_URL", "redis://localhost:6379/15")
 
 
-@pytest.fixture(autouse=True)
+@pytest.fixture
 async def isolate_rate_limit_keys():
     url = os.environ["REDIS_URL"]
     if not url.endswith("/15"):
