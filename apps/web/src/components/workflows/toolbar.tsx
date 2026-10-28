@@ -80,6 +80,7 @@ export function WorkflowToolbar({
       {validate.data && (
         <div
           role="status"
+          aria-label="Workflow validation"
           className={`mb-4 rounded-lg border p-4 ${validate.data.valid ? "border-teal-200 bg-teal-50 text-teal-800" : "border-red-200 bg-red-50 text-red-800"}`}
         >
           {validate.data.valid ? (

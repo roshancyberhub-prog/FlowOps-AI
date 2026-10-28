@@ -1,4 +1,6 @@
 "use client";
+
+import { useRef } from "react";
 import {
   Background,
   Controls,
@@ -23,6 +25,7 @@ export function WorkflowCanvas(props: CanvasProps) {
 function Canvas(props: CanvasProps) {
   const { specs, readOnly } = props;
   const state = useWorkflowCanvas(props);
+  const canvasRef = useRef<HTMLDivElement>(null);
   const {
     nodes,
     edges,
@@ -45,8 +48,24 @@ function Canvas(props: CanvasProps) {
         aria-label="Visual workflow editor"
         className="panel grid min-w-0 overflow-hidden xl:grid-cols-[170px_minmax(0,1fr)_250px]"
       >
-        <NodePalette specs={specs} readOnly={readOnly} onAdd={addNode} />
+        <NodePalette
+          specs={specs}
+          readOnly={readOnly}
+          onAdd={(type) => {
+            const bounds = canvasRef.current?.getBoundingClientRect();
+            addNode(
+              type,
+              bounds
+                ? instance.screenToFlowPosition({
+                    x: bounds.left + bounds.width / 2 - 96,
+                    y: bounds.top + bounds.height / 2 - 40,
+                  })
+                : undefined,
+            );
+          }}
+        />
         <div
+          ref={canvasRef}
           className="relative min-w-0 bg-slate-50"
           style={{ height: 600 }}
           onDragOver={(event) => event.preventDefault()}

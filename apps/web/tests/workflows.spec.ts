@@ -4,6 +4,7 @@ test("edit a visual workflow, validate, publish and inspect an immutable version
   page,
 }, testInfo) => {
   const suffix = Date.now();
+  await page.setViewportSize({ width: 1440, height: 1100 });
   await page.goto("/login");
   await page
     .getByRole("button", { name: "Create an account", exact: true })
@@ -34,6 +35,12 @@ test("edit a visual workflow, validate, publish and inspect an immutable version
     page.getByRole("heading", { name: "Workflow builder" }),
   ).toBeVisible();
   await page
+    .getByRole("button", { name: "Validate lead", exact: true })
+    .click();
+  await page.getByRole("button", { name: "Validate", exact: true }).click();
+  await expect(page.getByText("Fix these workflow issues:")).toBeVisible();
+  await page.getByRole("button", { name: "Remove node", exact: true }).click();
+  await page
     .getByTestId("workflow-node")
     .filter({ hasText: "Record result" })
     .click();
@@ -41,7 +48,9 @@ test("edit a visual workflow, validate, publish and inspect an immutable version
     .getByLabel("Node label", { exact: true })
     .fill("Record verified result");
   await page.getByRole("button", { name: "Save draft", exact: true }).click();
-  await expect(page.getByRole("status")).toHaveText("Draft saved.");
+  await expect(
+    page.getByRole("status", { name: "Workflow update" }),
+  ).toHaveText("Draft saved.");
   await page.getByRole("button", { name: "Validate", exact: true }).click();
   await expect(
     page.getByText("Workflow is valid.", { exact: false }),
@@ -49,7 +58,9 @@ test("edit a visual workflow, validate, publish and inspect an immutable version
   await page
     .getByRole("button", { name: "Publish version", exact: true })
     .click();
-  await expect(page.getByRole("status")).toHaveText("Version 1 published.");
+  await expect(
+    page.getByRole("status", { name: "Workflow update" }),
+  ).toHaveText("Version 1 published.");
   await page
     .getByTestId("workflow-node")
     .filter({ hasText: "Record verified result" })
@@ -58,7 +69,9 @@ test("edit a visual workflow, validate, publish and inspect an immutable version
     .getByLabel("Node label", { exact: true })
     .fill("A different draft label");
   await page.getByRole("button", { name: "Save draft", exact: true }).click();
-  await expect(page.getByRole("status")).toHaveText("Draft saved.");
+  await expect(
+    page.getByRole("status", { name: "Workflow update" }),
+  ).toHaveText("Draft saved.");
   await page
     .getByLabel("Definition", { exact: true })
     .selectOption({ label: "Published version 1" });

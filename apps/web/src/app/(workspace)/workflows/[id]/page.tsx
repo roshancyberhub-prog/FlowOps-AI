@@ -66,6 +66,7 @@ export default function WorkflowPage() {
       {notice && (
         <p
           role="status"
+          aria-label="Workflow update"
           className="mb-4 rounded-lg bg-teal-50 p-3 text-teal-800"
         >
           {notice}
