@@ -12,6 +12,8 @@ Desktop and mobile screenshots come from the real Docker-backed browser journey 
 
 ![Workflow version inspection](docs/screenshots/workflow-builder.png)
 
+![Verified background execution](docs/screenshots/execution-completed.png)
+
 ## Local setup
 
 Install Docker with Compose v2, then run from the repository root:
