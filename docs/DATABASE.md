@@ -23,4 +23,4 @@ erDiagram
   users ||--o{ audit_logs : acts
 ```
 
-Lead archive preserves data and normalized email uniqueness. Restoring changes status. Audit records contain action/resource/request identifiers, not message bodies or credentials. Workflow, execution, import and integration tables are future migrations and are not present yet.
+Lead archive preserves data and normalized email uniqueness. Restoring changes status. Audit records contain action/resource/request identifiers, not message bodies or credentials. The `0002_workflows` migration adds `workflows` (mutable draft, revision, current version and state) and `workflow_versions` (immutable graph snapshots with a unique workflow/version number). A PostgreSQL trigger rejects updates/deletes to published versions. Publication and draft saving lock the workflow row and check the expected revision. Execution, import and integration tables remain future migrations.

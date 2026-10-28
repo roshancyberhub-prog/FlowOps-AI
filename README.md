@@ -4,11 +4,13 @@ Workflow automation and AI-assisted lead operations built with Next.js, FastAPI,
 
 Development follows [CHATGPT.md](CHATGPT.md). See [requirements](docs/REQUIREMENTS.md) and the [implementation checklist](IMPLEMENTATION_STATUS.md) for scope and verified progress.
 
-The foundation includes revocable session authentication, workspaces and membership roles, persistent lead management, duplicate protection, and audit history. Workflow editing, background execution, AI processing and integrations are upcoming milestones. No live deployment is available yet.
+Implemented features include revocable session authentication, workspaces and membership roles, persistent lead management, duplicate protection, audit history, and a React Flow workflow editor with validation, draft saving and immutable published versions. Background execution, AI processing and integrations are upcoming milestones. No live deployment is available yet.
 
 ![Verified lead management interface](docs/screenshots/leads-desktop.png)
 
 Desktop and mobile screenshots come from the real Docker-backed browser journey in CI.
+
+![Workflow version inspection](docs/screenshots/workflow-builder.png)
 
 ## Local setup
 

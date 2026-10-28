@@ -149,6 +149,11 @@ export function Workspace({ children }: { children: React.ReactNode }) {
       ? [{ href: "/activity", label: "Audit activity", icon: Activity }]
       : []),
   ];
+  const activeNavigation = navigation.find(
+    (item) =>
+      item.href === pathname ||
+      (item.href !== "/" && pathname.startsWith(`${item.href}/`)),
+  );
   return (
     <Context.Provider value={{ organization, user: me.data }}>
       <div className="grid min-h-screen grid-cols-[minmax(0,1fr)] lg:grid-cols-[232px_minmax(0,1fr)]">
@@ -193,8 +198,10 @@ export function Workspace({ children }: { children: React.ReactNode }) {
               <Link
                 key={href}
                 href={href}
-                aria-current={pathname === href ? "page" : undefined}
-                className={`flex min-h-11 shrink-0 items-center gap-3 rounded-lg px-3 text-sm transition-colors ${pathname === href ? "bg-teal-400/10 text-teal-200" : "hover:bg-white/5 hover:text-white"}`}
+                aria-current={
+                  activeNavigation?.href === href ? "page" : undefined
+                }
+                className={`flex min-h-11 shrink-0 items-center gap-3 rounded-lg px-3 text-sm transition-colors ${activeNavigation?.href === href ? "bg-teal-400/10 text-teal-200" : "hover:bg-white/5 hover:text-white"}`}
               >
                 <Icon size={17} />
                 {label}
@@ -239,7 +246,7 @@ export function Workspace({ children }: { children: React.ReactNode }) {
             <span className="text-xs text-slate-500">
               Workspace <span className="mx-2 text-slate-300">/</span>{" "}
               <span className="font-medium text-slate-700">
-                {navigation.find((item) => item.href === pathname)?.label}
+                {activeNavigation?.label}
               </span>
             </span>
             <span className="rounded-full border border-teal-200 bg-teal-50 px-3 py-1 text-[11px] font-medium text-teal-800">

@@ -129,9 +129,9 @@ function Canvas(props: CanvasProps) {
         />
       </section>
       <p className="mt-4 text-xs text-slate-500">
-        Version 1 graphs support one trigger, one connection per output, and
-        branches without joins or loops. Execution will be available when
-        background workers are implemented.
+        Use one trigger and one connection per output. Loops and joining
+        branches are not supported. Running workflows is not available in this
+        release.
       </p>
     </>
   );

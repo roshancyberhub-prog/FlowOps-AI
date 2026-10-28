@@ -22,3 +22,10 @@ Authentication uses the `flowops_session` HttpOnly cookie. Organization-owned ro
 Lead listing accepts `search`, `status`, `page` (starting at 1), and `page_size` (1–100). Omitting status excludes archived leads. Responses contain `items`, `total`, `page`, and `page_size`. Scores and organization identifiers are not writable through lead inputs.
 
 Errors contain an `error` object with `code`, `message`, `request_id`, and `details`. Validation responses omit raw submitted inputs. Every response carries `X-Request-ID`. Health routes do not reveal infrastructure errors. CSRF protection rejects browser mutations from an origin other than `WEB_ORIGIN`.
+
+
+## Workflow definitions
+
+`GET/POST /workflows` lists paginated workflows or creates a draft. `GET/PATCH /workflows/{id}` reads or saves it; writes include `expected_revision` to reject stale edits. `POST /workflows/{id}/validate` validates the stored graph, or a supplied unsaved graph, without executing it. `POST /workflows/{id}/publish` validates and freezes a new version transactionally. `/pause`, `/resume`, `/archive` and `/duplicate` implement the corresponding transitions. `GET /workflows/{id}/versions` is paginated; `/versions/{version_id}` reads an immutable snapshot. `/workflows/node-types` and `/workflows/templates` expose the bounded registry and starter templates.
+
+Graph schema version 1 permits one trigger, one edge per output and branches without joins or cycles. Node configuration and action permissions are validated on publication. Every email path must include a generated draft followed by a fresh approval node. A later draft invalidates the earlier approval path. These are definition constraints; execution is the next milestone.

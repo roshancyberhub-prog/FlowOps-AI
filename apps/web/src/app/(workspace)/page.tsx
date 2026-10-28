@@ -156,8 +156,8 @@ export default function Overview() {
         )}
       </section>
       <p className="mt-6 text-xs text-slate-500">
-        This foundation release includes lead management and workspace access.
-        Workflow automation and AI processing are not available yet.
+        Lead management and workflow design are available. Workflow execution
+        and AI processing are not available in this release.
       </p>
     </>
   );

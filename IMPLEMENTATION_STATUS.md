@@ -4,7 +4,7 @@ Status reflects verified behavior only. Follow CHATGPT.md in milestone order.
 
 - [x] Milestone 0: read supplied requirements; confirm empty private repository and available runtimes.
 - [x] Milestone 1: FastAPI, PostgreSQL migrations, maintained authentication, organizations, lead CRUD, Next.js, CI, Docker; verify persistence and tenant isolation.
-- [ ] Milestone 2: validated graph registry, drafts, immutable versions, templates, React Flow editor.
+- [x] Milestone 2: validated graph registry, drafts, immutable versions, templates, React Flow editor.
 - [ ] Milestone 3: Celery/Redis, durable dispatch, persisted steps, retries, cancellation, approval checkpoints.
 - [ ] Milestone 4: bounded CSV imports, reproducible ICP scoring, structured AI adapters, approval inbox, explicit mock email.
 - [ ] Milestone 5: real integration, signed and deduplicated inbound webhooks, outbound attempts and retries.
@@ -52,3 +52,8 @@ The workflow graph schema, node configuration registry, deterministic topology v
 ## Milestone 2 editor checkpoint
 
 The React Flow interface is connected to the workflow APIs: template creation, node palette/drop, connections, editable configuration, save/validate/publish, immutable version inspection and unsaved-change warnings. The workflow backend passed GitHub Actions run 40670074327, including immutable-version and revision-conflict tests. Frontend lint, type checks, production build and npm audit pass locally; the new workflow browser journey is pending CI. Execution controls remain intentionally absent until the real worker exists.
+
+
+## Milestone 2 acceptance
+
+GitHub Actions run 40673713422 passed 36 backend tests, PostgreSQL migration/schema checks and all three Docker-backed browser journeys. The workflow journey adds/removes a disconnected node, edits a node label, saves, validates, publishes, edits a later draft and verifies the published version stays unchanged after inspection/reload. The server also rejects direct database updates to published versions. Execution/test-run controls depend on Milestone 3 and are not represented as available yet.
