@@ -183,6 +183,7 @@ export default function Leads() {
                   <th>Lead</th>
                   <th>Company / role</th>
                   <th>Status</th>
+                  <th>Fit score</th>
                   <th>Added</th>
                   <th>
                     <span className="sr-only">Actions</span>
@@ -215,6 +216,9 @@ export default function Leads() {
                       >
                         {lead.status}
                       </span>
+                    </td>
+                    <td className="text-sm font-semibold text-teal-800">
+                      {lead.scored_at ? `${lead.score}/100` : "—"}
                     </td>
                     <td className="whitespace-nowrap text-xs text-slate-500">
                       {new Date(lead.created_at).toLocaleDateString()}

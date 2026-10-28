@@ -157,7 +157,7 @@ export default function Overview() {
       </section>
       <p className="mt-6 text-xs text-slate-500">
         Lead management, workflow design, and background runs are available.
-        Scoring, AI drafts, and email delivery are still in development.
+        Rule-based lead scoring is available. AI drafts and email delivery are still in development.
       </p>
     </>
   );

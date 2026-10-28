@@ -8,6 +8,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { X } from "lucide-react";
 import { api, type Lead } from "@/lib/api";
 import { useWorkspace } from "@/components/workspace";
+import { LeadScoring } from "@/features/leads/lead-scoring";
 import { Button } from "@/components/ui/button";
 
 const schema = z.object({
@@ -172,12 +173,7 @@ export function LeadForm({
             {save.error.message}
           </p>
         )}
-        {readOnly && (
-          <p className="mt-6 text-xs text-slate-500">
-            Added {lead && new Date(lead.created_at).toLocaleString()}. Lead
-            scoring is not available in this release.
-          </p>
-        )}
+        {readOnly && lead && <LeadScoring lead={lead} />}
         <div className="mt-7 flex justify-end gap-3">
           <Button type="button" variant="outline" onClick={onClose}>
             {readOnly ? "Close" : "Cancel"}

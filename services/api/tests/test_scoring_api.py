@@ -83,6 +83,11 @@ async def test_profile_versions_are_immutable_and_published_workflow_pins_its_pr
                     .values(name="Forbidden mutation")
                 )
             await session.rollback()
+        edited = await client.patch(
+            "/api/v1/leads/" + lead["id"], headers=headers, json={"job_title": "Analyst"}
+        )
+        assert edited.json()["scored_at"] is None
+        assert edited.json()["score_reasons"] == []
         other = (
             await client.post("/api/v1/organizations", json={"name": "Other scoring team"})
         ).json()

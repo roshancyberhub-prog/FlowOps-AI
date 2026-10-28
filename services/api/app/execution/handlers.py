@@ -98,6 +98,21 @@ async def handle_node(
             )
             if lead is None or lead.status == "archived":
                 raise NodeFailure("LEAD_UNAVAILABLE", "The lead is unavailable or archived.")
+            if any(
+                getattr(lead, field) != context["lead"].get(field)
+                for field in (
+                    "email",
+                    "company",
+                    "job_title",
+                    "industry",
+                    "company_size",
+                    "website",
+                    "country",
+                )
+            ):
+                raise NodeFailure(
+                    "LEAD_CHANGED", "The lead changed after this run started. Start a new run."
+                )
             lead.score = result.score
             lead.score_reasons = result.reasons
             lead.score_profile_id = profile.id
