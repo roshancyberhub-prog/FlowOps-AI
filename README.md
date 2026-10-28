@@ -4,4 +4,74 @@ Workflow automation and AI-assisted lead operations built with Next.js, FastAPI,
 
 Development follows [CHATGPT.md](CHATGPT.md). See [requirements](docs/REQUIREMENTS.md) and the [implementation checklist](IMPLEMENTATION_STATUS.md) for scope and verified progress.
 
-The repository is being built incrementally. No live deployment is available yet.
+The foundation includes revocable session authentication, workspaces and membership roles, persistent lead management, duplicate protection, and audit history. Workflow editing, background execution, AI processing and integrations are upcoming milestones. No live deployment is available yet.
+
+## Local setup
+
+Install Docker with Compose v2, then run from the repository root:
+
+```bash
+cp .env.example .env
+# Replace POSTGRES_PASSWORD and the matching password in DATABASE_URL.
+docker compose up --build --wait
+```
+
+Open http://localhost:3000, choose **Create an account**, register with a password of 12–128 characters, and create a workspace. The first member is its owner. Add registered users through **Team & workspace**. Owner/admin can manage members; member can manage leads; viewer can inspect leads. Passwords are hashed by FastAPI Users with Argon2; sessions expire after one hour and logout revokes the database token.
+
+API documentation: http://localhost:8000/docs. Liveness: `/api/v1/health/live`. Readiness: `/api/v1/health/ready`. PostgreSQL persists in the `postgres_data` volume. `docker compose down` keeps that volume. Never use `down --volumes` against data you need.
+
+The migration service applies Alembic migrations before the API starts. Migrations do not run in application request handlers.
+
+## Development without application containers
+
+Requires Python 3.12+, uv 0.13.4, Node 24 and npm 11.9.0. Start PostgreSQL and Redis with Compose, then use two terminals:
+
+```bash
+docker compose up -d postgres redis
+cd services/api
+uv sync --frozen
+# Export DATABASE_URL, REDIS_URL and WEB_ORIGIN from your root .env.
+uv run alembic upgrade head
+uv run uvicorn app.main:app --reload --port 8000 --no-proxy-headers
+```
+
+```bash
+cd apps/web
+npm ci --ignore-scripts
+npm run dev
+```
+
+Only public frontend configuration belongs in the browser. Next.js forwards `/api` to `API_INTERNAL_URL` (default `http://127.0.0.1:8000`). No CORS allowance is needed for this same-origin setup. Set `WEB_ORIGIN` to the browser's exact origin. Use `APP_ENV=production` and HTTPS in production to enable secure cookies. Docker targets `http://api:8000` at build time.
+
+## Quality checks
+
+```bash
+cd services/api
+uv run ruff check .
+uv run ruff format --check .
+uv run mypy app
+# Use a separate PostgreSQL database named flowops_test and Redis database /15.
+APP_ENV=test DATABASE_URL=postgresql+asyncpg://flowops:YOUR_PASSWORD@localhost:5432/flowops_test REDIS_URL=redis://localhost:6379/15 uv run alembic upgrade head
+APP_ENV=test DATABASE_URL=postgresql+asyncpg://flowops:YOUR_PASSWORD@localhost:5432/flowops_test REDIS_URL=redis://localhost:6379/15 uv run pytest -q
+```
+
+```bash
+cd apps/web
+npm run lint
+npm run typecheck
+npm run build
+npm audit --omit=dev --audit-level=high
+npx playwright install chromium
+# With the Docker application running on localhost:3000:
+E2E_EXTERNAL=1 npm test
+```
+
+Do not run tests against production data. Browser tests create fictional accounts, workspaces and leads. CI runs migration upgrade/check/downgrade, backend tests against PostgreSQL/Redis, frontend checks, and the documented Docker/browser journey.
+
+## Current limits
+
+There is no password reset or verification email flow yet. Team access currently requires an existing account. Lead deletion archives the record, and changing its status restores it. Normalized email uniqueness applies within each workspace, including archived leads. Scores are not yet calculated.
+
+HTTP bodies are limited to 1 MiB. Redis backs fixed-window limits of 10 authentication requests per 15 minutes and 300 other API requests per minute per observed client address. A reverse proxy can group clients under one address; configure a trusted ingress and a deliberate client-address policy before a public launch. Do not trust arbitrary forwarded-IP headers. Login, passwords and session tokens are never stored in browser JavaScript storage.
+
+See [implementation status](IMPLEMENTATION_STATUS.md) for verified and unverified work.

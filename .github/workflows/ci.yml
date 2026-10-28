@@ -32,8 +32,8 @@ jobs:
       run:
         working-directory: services/api
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v6
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v7
         with:
           version: "0.13.4"
           python-version: "3.12"
@@ -46,3 +46,42 @@ jobs:
       - run: uv run pytest -q
       - run: uv run alembic downgrade base
       - run: uv run alembic upgrade head
+  web:
+    needs: api
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/web
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+      - run: npm install --global npm@11.9.0 --ignore-scripts
+      - run: npm ci --ignore-scripts
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm audit --omit=dev --audit-level=high
+      - run: npx playwright install --with-deps chromium
+      - name: Validate and start the documented Docker stack
+        working-directory: .
+        run: |
+          cp .env.example .env
+          docker compose config --quiet
+          docker compose up --build --wait --wait-timeout 240
+      - run: npx playwright test
+        env:
+          E2E_EXTERNAL: "1"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: browser-verification
+          path: apps/web/test-results/
+      - name: Show logs and stop services
+        if: always()
+        working-directory: .
+        run: |
+          docker compose logs --tail 80
+          docker compose down

@@ -24,4 +24,9 @@ The GitHub repository was empty on 2026-10-28. Node 24 and Python 3.12 are avail
 
 Implemented: FastAPI Users database sessions (login/logout), workspace creation and membership roles, scoped lead CRUD/search/pagination, normalized duplicate protection, audit events, request limits, Redis rate limiting, origin checks and health endpoints. The initial Alembic migration defines six application tables.
 
-Verified locally: 15 tests without PostgreSQL, Ruff lint/format, Mypy, dependency lock consistency, and offline PostgreSQL migration generation. Redis was run alongside the tests. Database persistence and cross-tenant integration tests are configured in GitHub Actions and are pending execution. The foundation milestone remains incomplete.
+Verified locally: 15 tests without PostgreSQL, Ruff lint/format, Mypy, dependency lock consistency, and offline PostgreSQL migration generation. Redis was run alongside the tests. GitHub Actions run 40662313670 passed all 17 backend tests, PostgreSQL migration upgrade/check/downgrade/upgrade, Ruff and Mypy. The foundation milestone remains incomplete.
+
+
+## Foundation interface checkpoint
+
+Implemented: Next.js sign-in/registration, workspace creation/switching, live-data overview, searchable/paginated lead CRUD with archive/restore, membership management, and restricted audit history. Frontend lint, TypeScript, production build and npm production audit pass locally. Docker and Playwright journeys are configured in CI; browser execution and Docker startup verification are pending. A local Chromium download failed, so browser results must come from CI rather than a claimed local run.
