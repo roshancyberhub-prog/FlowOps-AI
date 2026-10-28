@@ -22,3 +22,10 @@ def test_permanent_errors_do_not_retry_and_unknown_errors_are_sanitized():
     unknown = classify_error(RuntimeError("private@example.com token=do-not-leak"), "none")
     assert "private@example.com" not in unknown.summary
     assert "do-not-leak" not in unknown.summary
+
+
+def test_unclassified_external_error_is_uncertain_and_never_retried():
+    failure = classify_error(RuntimeError("private provider result"), "external")
+    assert failure.uncertain and not failure.retryable
+    assert failure.code == "UNCERTAIN_EXTERNAL_RESULT"
+    assert "private provider result" not in failure.summary

@@ -4,7 +4,7 @@ Workflow automation and AI-assisted lead operations built with Next.js, FastAPI,
 
 Development follows [CHATGPT.md](CHATGPT.md). See [requirements](docs/REQUIREMENTS.md) and the [implementation checklist](IMPLEMENTATION_STATUS.md) for scope and verified progress.
 
-Implemented features include revocable session authentication, workspaces and membership roles, persistent lead management, duplicate protection, audit history, and a React Flow workflow editor with validation, draft saving and immutable published versions. Celery background runs now persist step history, bounded retries, cancellation and human checkpoints. Bounded CSV imports provide saved row reports, and configurable immutable ICP profiles explain lead scores. AI processing and integrations are upcoming milestones. No live deployment is available yet.
+Implemented features include revocable session authentication, workspaces and membership roles, persistent lead management, duplicate protection, audit history, and a React Flow workflow editor with validation, draft saving and immutable published versions. Celery background runs now persist step history, bounded retries, cancellation and human checkpoints. Bounded CSV imports provide saved row reports, and configurable immutable ICP profiles explain lead scores. A labelled mock qualification/draft/email path supports the approval demo; live providers and external integrations remain unconfigured. No live deployment is available yet.
 
 ![Verified lead management interface](docs/screenshots/leads-desktop.png)
 
@@ -61,7 +61,7 @@ cd services/api
 uv run celery -A app.execution.worker:celery_app beat --loglevel=WARNING --schedule=/tmp/flowops-celerybeat
 ```
 
-Publish a basic workflow, choose **Run workflow**, and start a test run. **Executions** shows its background step history. Lead status changes and internal notifications are simulated in test mode. A `Request approval` node configured with `kind: continue` pauses for an owner/admin decision in **Approvals**. Email-specific approvals require a draft; provider-backed nodes are not configured yet.
+Publish a basic workflow, choose **Run workflow**, and start a test run. **Executions** shows its background step history. Lead status changes and internal notifications are simulated in test mode. A `Request approval` node configured with `kind: continue` pauses for an owner/admin decision in **Approvals**. Email-specific approvals require a stored draft. The example environment explicitly enables mock AI and mock email; see [outreach](docs/OUTREACH.md). No real AI call or external email is made.
 
 Only public frontend configuration belongs in the browser. Next.js forwards `/api` to `API_INTERNAL_URL` (default `http://127.0.0.1:8000`). No CORS allowance is needed for this same-origin setup. Set `WEB_ORIGIN` to the browser's exact origin. Use `APP_ENV=production` and HTTPS in production to enable secure cookies. Docker targets `http://api:8000` at build time.
 

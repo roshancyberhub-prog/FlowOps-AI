@@ -48,6 +48,14 @@ def classify_error(error: Exception, side_effect: str) -> FailureInfo:
             uncertain,
             frames,
         )
+    if side_effect == "external":
+        return FailureInfo(
+            "UNCERTAIN_EXTERNAL_RESULT",
+            "The external result is uncertain; reconcile it before any new send.",
+            False,
+            True,
+            frames,
+        )
     return FailureInfo(
         "NODE_ERROR",
         "The node could not complete. Review its configuration and details.",

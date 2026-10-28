@@ -30,7 +30,7 @@ The execution acceptance run verifies an actual Celery worker completes a backgr
 - Execution listing/detail/timeline, run dialog with lead search, approval review and authenticated dispatch health.
 - Lead-created triggers share the lead transaction; scheduled triggers persist their next due time and coalesce missed intervals.
 
-AI generation and email nodes currently fail explicitly as unconfigured. Inbound/outbound webhooks are not implemented. No public deployment or provider delivery is verified.
+AI and email nodes now support explicitly labelled mock providers or fail as disabled; no live provider is connected. Inbound/outbound webhooks are not implemented. No public deployment or provider delivery is verified.
 
 ## Milestone 4 checkpoint: CSV and scoring
 
@@ -38,7 +38,7 @@ Run 40741008963 passed 72 backend tests, PostgreSQL migrations/schema checks and
 
 The baseline ICP is configurable and versioned. Workflow publication pins a profile UUID; editing score inputs clears the current result. Imports are bounded to 512 KiB and 2000 records and run in transactional batches of 100. Existing and in-file duplicates are skipped, mapped row reports persist, and raw sources are cleared on completion/failure or after seven days. See SCORING.md and IMPORTS.md.
 
-AI qualification/drafts, approval editing and protected mock email delivery remain the rest of Milestone 4. The source instructions explicitly authorize a safe mock if credentials are unavailable; no OpenAI key was found. Live AI calls, real email and production deployment are not configured or claimed.
+Structured qualification/drafts, approval editing and protected mock email delivery passed backend checkpoint 40744449923 (79 tests). The full outreach interface and expanded CSV-to-reviewed-delivery browser journey are awaiting CI acceptance. The source instructions explicitly authorize a safe mock if credentials are unavailable; no OpenAI key was found. Live AI calls, real email and production deployment are not configured or claimed.
 
 ## Development and publication
 

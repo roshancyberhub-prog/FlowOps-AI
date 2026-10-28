@@ -8,7 +8,7 @@ from app.ai.review import reviewed_draft
 from app.ai.schemas import DraftContent
 from app.email.providers import get_email_provider
 from app.execution.errors import NodeFailure
-from app.models import ApprovalRequest, EmailDelivery, Lead, WorkflowExecution
+from app.models import ApprovalRequest, EmailDelivery, Lead, Membership, User, WorkflowExecution
 
 
 async def deliver_approved_email(
@@ -49,6 +49,23 @@ async def deliver_approved_email(
         raise NodeFailure(
             "APPROVAL_REQUIRED", "A current email approval is required before sending."
         )
+    approver = await session.scalar(
+        select(Membership).where(
+            Membership.organization_id == run.organization_id,
+            Membership.user_id == approval.decided_by,
+        )
+    )
+    approver_user = await session.get(User, approval.decided_by) if approval.decided_by else None
+    if (
+        approver is None
+        or approver.role not in {"owner", "admin"}
+        or approver_user is None
+        or not approver_user.is_active
+    ):
+        raise NodeFailure(
+            "APPROVER_NO_LONGER_AUTHORIZED",
+            "The approving user no longer has permission. Start a new reviewed run.",
+        )
     try:
         draft = await reviewed_draft(session, run, approval, "approved")
     except HTTPException as exc:
@@ -65,6 +82,12 @@ async def deliver_approved_email(
             raise NodeFailure(
                 "RECIPIENT_CHANGED",
                 "The stored recipient changed or is unavailable. Start a new reviewed run.",
+            )
+        fields = ("name", "company", "job_title", "industry", "company_size", "website", "country")
+        if any(getattr(lead, field) != draft.provided_facts.get(field) for field in fields):
+            raise NodeFailure(
+                "LEAD_CHANGED",
+                "The provided lead facts changed after drafting. Start a new reviewed run.",
             )
     provider = get_email_provider(run.mode)
     key = f"{run.id}:{node_id}"

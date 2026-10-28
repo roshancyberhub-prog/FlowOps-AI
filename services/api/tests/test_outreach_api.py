@@ -229,7 +229,14 @@ async def test_disabled_ai_fails_explicitly_without_generating_content(monkeypat
         ).json()["total"] == 0
 
 
-async def test_changed_live_recipient_blocks_delivery_after_approval():
+@pytest.mark.parametrize(
+    "change,error_code",
+    [
+        ({"email": "changed@example.com"}, "RECIPIENT_CHANGED"),
+        ({"company": "Changed company"}, "LEAD_CHANGED"),
+    ],
+)
+async def test_changed_live_lead_blocks_delivery_after_approval(change, error_code):
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         headers, lead, run = await setup_outreach(client, mode="live")
         assert (await advance(client, headers, run["id"]))["status"] == "waiting_for_approval"
@@ -243,12 +250,10 @@ async def test_changed_live_recipient_blocks_delivery_after_approval():
                 json=decision(approval),
             )
         ).status_code == 200
-        changed = await client.patch(
-            "/api/v1/leads/" + lead["id"], headers=headers, json={"email": "changed@example.com"}
-        )
+        changed = await client.patch("/api/v1/leads/" + lead["id"], headers=headers, json=change)
         assert changed.status_code == 200
         final = await advance(client, headers, run["id"])
-        assert final["status"] == "failed" and final["error_code"] == "RECIPIENT_CHANGED"
+        assert final["status"] == "failed" and final["error_code"] == error_code
         assert (
             await client.get("/api/v1/deliveries?execution_id=" + run["id"], headers=headers)
         ).json()["total"] == 0
@@ -271,4 +276,45 @@ async def test_rejecting_email_checkpoint_cancels_without_a_delivery():
         assert final["status"] == "cancelled"
         assert (
             await client.get("/api/v1/deliveries?execution_id=" + run["id"], headers=headers)
+        ).json()["total"] == 0
+
+
+async def test_revoked_approver_permission_blocks_a_previously_approved_send():
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as owner:
+        headers, _, run = await setup_outreach(owner)
+        assert (await advance(owner, headers, run["id"]))["status"] == "waiting_for_approval"
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as admin:
+            email = f"approver-{uuid4()}@example.com"
+            await account(admin, email)
+            member = await owner.post(
+                "/api/v1/organizations/" + headers["X-Organization-ID"] + "/members",
+                headers=headers,
+                json={"email": email, "role": "admin"},
+            )
+            assert member.status_code == 201, member.text
+            approval = (
+                await admin.get("/api/v1/approvals?status=pending", headers=headers)
+            ).json()["items"][0]
+            assert (
+                await admin.post(
+                    "/api/v1/approvals/" + approval["id"] + "/approve",
+                    headers=headers,
+                    json=decision(approval),
+                )
+            ).status_code == 200
+            changed = await owner.patch(
+                "/api/v1/organizations/"
+                + headers["X-Organization-ID"]
+                + "/members/"
+                + member.json()["id"],
+                headers=headers,
+                json={"role": "viewer"},
+            )
+            assert changed.status_code == 200, changed.text
+        final = await advance(owner, headers, run["id"])
+        assert (
+            final["status"] == "failed" and final["error_code"] == "APPROVER_NO_LONGER_AUTHORIZED"
+        )
+        assert (
+            await owner.get("/api/v1/deliveries?execution_id=" + run["id"], headers=headers)
         ).json()["total"] == 0
