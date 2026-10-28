@@ -8,4 +8,4 @@
 - A Redis Lua increment/expiry script enforces rate windows atomically across API instances. Redis failure produces 503; limits do not silently disappear.
 - Docker Compose separates migration, API and web startup and verifies readiness. CI tests the documented containers against real PostgreSQL/Redis.
 
-Python and frontend lockfiles pin dependencies. JavaScript install scripts are disabled; native prebuilt optional packages supply the Next.js/Tailwind build dependencies. There is no Celery execution code yet, and no external AI/email/CRM credential is configured.
+Python and frontend lockfiles pin dependencies. JavaScript install scripts are disabled; native prebuilt optional packages supply the Next.js/Tailwind build dependencies. Celery 5.6 uses Redis through a compatible stable transport; see [the dependency decision](adr/0001-worker-transport.md). PostgreSQL owns execution state, step attempts, approval checkpoints and dispatch intent. Beat initiates dispatch and scheduled-trigger checks; late acknowledgements, row locks, leases and reconciliation tolerate duplicate/lost queue messages. No external AI/email/CRM credential is configured.

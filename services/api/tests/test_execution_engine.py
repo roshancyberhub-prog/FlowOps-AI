@@ -1,3 +1,4 @@
+import asyncio
 from datetime import timedelta
 from uuid import UUID, uuid4
 
@@ -49,8 +50,7 @@ async def test_steps_are_persisted_and_duplicate_delivery_is_harmless():
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         headers, run = await prepare(client, ["trigger.manual", "action.record_result"])
         run_id = UUID(run["id"])
-        await engine.process_execution(session_factory, run_id)
-        await engine.process_execution(session_factory, run_id)
+        await asyncio.gather(*(engine.process_execution(session_factory, run_id) for _ in range(3)))
         await engine.process_execution(session_factory, run_id)
         result = await client.get("/api/v1/executions/" + run["id"], headers=headers)
         assert result.json()["status"] == "succeeded"
@@ -328,3 +328,34 @@ async def test_delay_persists_due_time_and_duplicate_delivery_cannot_skip_it():
         assert (await client.get("/api/v1/executions/" + run["id"], headers=headers)).json()[
             "status"
         ] == "succeeded"
+
+
+async def test_cancellation_after_worker_interruption_closes_the_open_step():
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        headers, run = await prepare(client, ["trigger.manual", "action.record_result"])
+        run_id = UUID(run["id"])
+        await engine.process_execution(session_factory, run_id)
+        async with session_factory() as session:
+            saved = await session.get(WorkflowExecution, run_id)
+            saved.status = "running"
+            saved.lease_token = uuid4()
+            saved.lease_until = now() - timedelta(seconds=1)
+            session.add(
+                ExecutionStep(
+                    execution_id=run_id,
+                    node_id="node_1",
+                    node_type="action.record_result",
+                    attempt_number=1,
+                )
+            )
+            await session.commit()
+        result = await client.post("/api/v1/executions/" + run["id"] + "/cancel", headers=headers)
+        assert result.status_code == 200
+        await engine.process_execution(session_factory, run_id)
+        steps = (
+            await client.get("/api/v1/executions/" + run["id"] + "/steps", headers=headers)
+        ).json()["items"]
+        assert steps[-1]["status"] == "cancelled"
+        assert (await client.get("/api/v1/executions/" + run["id"], headers=headers)).json()[
+            "status"
+        ] == "cancelled"

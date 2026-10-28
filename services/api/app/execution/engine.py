@@ -46,6 +46,20 @@ async def process_execution(factory: async_sessionmaker[AsyncSession], execution
         if run is None or run.status in TERMINAL or run.status == "waiting_for_approval":
             return
         if run.cancel_requested:
+            interrupted = await session.scalars(
+                select(ExecutionStep).where(
+                    ExecutionStep.execution_id == run.id, ExecutionStep.status == "running"
+                )
+            )
+            for pending in interrupted:
+                pending.completed_at = now()
+                pending.uncertain = REGISTRY[pending.node_type].side_effect == "external"
+                pending.status = "failed" if pending.uncertain else "cancelled"
+                if pending.uncertain:
+                    pending.error_code = run.error_code = "UNCERTAIN_EXTERNAL_RESULT"
+                    pending.error_summary = run.error_summary = (
+                        "The run was cancelled; reconcile the previous external attempt's outcome."
+                    )
             finish(run, "cancelled")
             await session.commit()
             return

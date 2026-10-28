@@ -10,50 +10,30 @@ Status reflects verified behavior only. Follow CHATGPT.md in milestone order.
 - [ ] Milestone 5: real integration, signed and deduplicated inbound webhooks, outbound attempts and retries.
 - [ ] Milestone 6: end-to-end verification, hardening, deployment, monitoring, recovery documentation, recorded demo.
 
-## Implementation sequence
+## Verified checkpoints
 
-1. Establish the API with PostgreSQL migrations, session authentication and organization-scoped leads. Test unauthenticated, viewer, and cross-organization requests.
-2. Add the Next.js sign-in, workspace selection and lead management interface; verify the complete lead CRUD journey in a browser.
-3. Extend the tested foundation one feature at a time in milestone order. Commit and publish each verified feature.
+| Milestone | Evidence |
+|---|---|
+| Foundation | Run 40664524685: PostgreSQL/Redis, migrations and two browser journeys |
+| Workflow design | Run 40673713422: 36 backend tests and three browser journeys |
+| Execution backend and interface | Run 40734064326: 50 backend tests, migrations, Docker worker/scheduler and four browser journeys |
 
-## Initial inspection
+The execution checkpoint starts a real background run, records its steps, reloads persisted history, pauses at a generic human checkpoint and submits an authorized approval. Screenshot review found the final approval-resume assertion could match a completed step while the overall run was still queued. The assertion now checks the overall run status plus all three completed steps; that strengthened check and the automatic-trigger additions await the next successful CI run.
 
-The GitHub repository was empty on 2026-10-28. Node 24 and Python 3.12 are available. PostgreSQL, Redis and Docker were not preinstalled. GitHub connector access permits repository writes; native HTTPS git lacks credentials, so publication uses the connected GitHub Git Data API. No deployment or external provider has been configured or verified.
+## Implemented execution behavior
 
-## Foundation backend checkpoint
+- Durable execution/outbox transaction; organization-scoped idempotency and immutable version pinning.
+- Celery step tasks, explicit registered handlers, finite timeouts and per-node attempts, exponential backoff with jitter, failure history and dead letters.
+- Duplicate/lost-message reconciliation and expired-lease recovery. An interrupted external intent becomes uncertain and cannot be retried blindly.
+- Conditions, lead validation, duplicate lookup, status changes, internal notifications, durable delay and result records.
+- Test-mode simulation, current membership checks, cancellation, bounded manual retries, hash/revision-bound approvals, rejection and expiry.
+- Execution listing/detail/timeline, run dialog with lead search, approval review and authenticated dispatch health.
+- Lead-created triggers share the lead transaction; scheduled triggers persist their next due time and coalesce missed intervals. These latest trigger additions are pending CI acceptance.
 
-Implemented: FastAPI Users database sessions (login/logout), workspace creation and membership roles, scoped lead CRUD/search/pagination, normalized duplicate protection, audit events, request limits, Redis rate limiting, origin checks and health endpoints. The initial Alembic migration defines six application tables.
+Scoring, AI generation and email nodes currently fail explicitly as unconfigured. Inbound/outbound webhooks and CSV imports are not implemented. No public deployment or provider delivery is verified.
 
-Verified locally: 17 tests without PostgreSQL, Ruff lint/format, Mypy, dependency lock consistency, and offline PostgreSQL migration generation. Redis was run alongside the tests. GitHub Actions run 40662313670 passed the original 17 backend tests, PostgreSQL migration upgrade/check/downgrade/upgrade, Ruff and Mypy. The foundation milestone passed its final Docker/browser acceptance checks in run 40664524685.
+## Development and publication
 
+The repository was initially empty. All supplied instructions were read before implementation. Python 3.12, Node 24, uv and npm are available. This local execution environment cannot start PostgreSQL under a non-root user, and the local Chromium download failed; actual database/browser verification comes from GitHub Actions. Local checks cover Python unit/API tests with Redis, Ruff, Mypy, TypeScript, ESLint and the production frontend build.
 
-## Foundation interface checkpoint
-
-Implemented: Next.js sign-in/registration, workspace creation/switching, live-data overview, searchable/paginated lead CRUD with archive/restore, membership management, and restricted audit history. Frontend lint, TypeScript, production build and npm production audit pass locally. GitHub Actions run 40664524685 passed both browser journeys and started the complete Docker stack successfully. A local Chromium download failed, so browser results must come from CI rather than a claimed local run.
-
-
-## Milestone 1 acceptance
-
-Run 40664524685 verified 19 backend tests, migration upgrade/check/downgrade/upgrade, Ruff, Mypy, frontend lint/type checks, production npm audit, Docker Compose configuration/build/readiness, and two Playwright browser tests. The complete browser journey includes account/workspace creation, lead persistence after reload, duplicate validation, edit/archive/restore, separate workspace views and logout. Desktop/mobile screenshots are retained in the run artifacts. A local standalone-server smoke test also returned 200 for the login page and stylesheet.
-
-Next: Milestone 2 graph schema/registry, validation, draft/version APIs, templates and React Flow. Execution is a later milestone and will not be represented as working before the worker exists.
-
-
-## Responsive finish gate
-
-GitHub Actions run 40667370206 passed the backend suite, Docker stack and browser journeys after an additional mobile geometry assertion. A 390px viewport now has a 390px document width; the lead table scrolls inside its own container. The root cause was an absolutely positioned screen-reader label without a containing block inside the scroll region. Request logging now uses structured method/path/status/request IDs and omits query values; its new privacy regression test passes locally.
-
-
-## Milestone 2 backend checkpoint (in progress)
-
-The workflow graph schema, node configuration registry, deterministic topology validation, draft/version APIs, stale-revision protection, templates, and a PostgreSQL immutable-version trigger are implemented on the workflow feature branch. Local unit/API checks pass, including approval bypass and stale-draft approval rejection. PostgreSQL workflow integration/migration checks are pending CI. The React Flow interface and milestone acceptance remain incomplete. No background workflow execution is implemented or claimed.
-
-
-## Milestone 2 editor checkpoint
-
-The React Flow interface is connected to the workflow APIs: template creation, node palette/drop, connections, editable configuration, save/validate/publish, immutable version inspection and unsaved-change warnings. The workflow backend passed GitHub Actions run 40670074327, including immutable-version and revision-conflict tests. Frontend lint, type checks, production build and npm audit pass locally; the new workflow browser journey is pending CI. Execution controls remain intentionally absent until the real worker exists.
-
-
-## Milestone 2 acceptance
-
-GitHub Actions run 40673713422 passed 36 backend tests, PostgreSQL migration/schema checks and all three Docker-backed browser journeys. The workflow journey adds/removes a disconnected node, edits a node label, saves, validates, publishes, edits a later draft and verifies the published version stays unchanged after inspection/reload. The server also rejects direct database updates to published versions. Execution/test-run controls depend on Milestone 3 and are not represented as available yet.
+Feature work is saved on `feature/workflows` and `feature/execution`. Automatic approval review rejected advancing the default branch because the workflow work was scoped to a separate branch. `main` retains the verified foundation; merging and a public deployment have not been performed. Continue feature-branch work and request explicit merge approval only after preparing the complete reviewable result.
