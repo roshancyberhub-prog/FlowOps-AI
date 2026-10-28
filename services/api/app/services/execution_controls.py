@@ -4,6 +4,7 @@ from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.ai.review import reviewed_draft
 from app.db.base import now
 from app.execution.dispatch import enqueue
 from app.execution.engine import TERMINAL, finish
@@ -119,6 +120,9 @@ async def decide_approval(
         or payload_hash(approval.payload) != approval.payload_hash
     ):
         raise HTTPException(409, "The approval changed. Reload and review the current request.")
+    if approval.kind == "email":
+        draft = await reviewed_draft(session, run, approval, "pending_review")
+        draft.status = "approved" if decision == "approved" else "rejected"
     approval.status = decision
     approval.decided_by = member.user_id
     approval.decided_at = now()
@@ -140,6 +144,8 @@ async def decide_approval(
             "kind": approval.kind,
             "revision": approval.revision,
         }
+        if approval.kind == "email":
+            context["email_approval"] = context["approval"]
         run.context = context
         run.current_node_id = next_node(graph, approval.node_id)
         run.node_attempt = 0

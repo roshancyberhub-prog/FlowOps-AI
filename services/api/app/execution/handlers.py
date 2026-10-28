@@ -5,11 +5,13 @@ from pydantic import ValidationError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.ai.drafting import draft_snapshot, generate_draft
 from app.db.base import now
+from app.email.delivery import deliver_approved_email
 from app.execution.errors import NodeFailure
 from app.execution.logic import compare
 from app.leads.scoring import ScoringConfig, calculate_score
-from app.models import Lead, Notification, ScoringProfile, WorkflowExecution
+from app.models import EmailDraft, Lead, Notification, ScoringProfile, WorkflowExecution
 from app.schemas.leads import LeadCreate
 from app.workflows.registry import REGISTRY
 from app.workflows.schema import Node
@@ -163,13 +165,48 @@ async def handle_node(
         )
     if node.type == "action.record_result":
         return Outcome({"recorded": True, "mode": run.mode})
+    if node.type == "action.generate_email_draft":
+        draft = await generate_draft(session, run, node.id, context, config)
+        context["draft"] = draft_snapshot(draft)
+        context.pop("approval", None)
+        context.pop("email_approval", None)
+        return Outcome(
+            {
+                "draft_id": str(draft.id),
+                "provider": draft.ai_metadata["draft"]["provider"],
+                "simulated": draft.ai_metadata["draft"]["simulated"],
+                "revision": draft.revision,
+            }
+        )
+    if node.type == "action.send_email":
+        delivery = await deliver_approved_email(session, run, node.id, context)
+        context["delivery"] = {
+            "id": str(delivery.id),
+            "provider": delivery.provider,
+            "status": delivery.status,
+            **delivery.delivery_metadata,
+        }
+        return Outcome(context["delivery"])
     if node.type == "action.request_approval":
         payload = {"kind": config["kind"], "message": config["message"]}
+        payload["mode"] = run.mode
         if config["kind"] == "email":
-            draft = context.get("draft")
-            if not isinstance(draft, dict):
+            saved_id = context.get("draft", {}).get("id")
+            if not saved_id:
                 raise NodeFailure("DRAFT_REQUIRED", "Generate a validated draft before approval.")
-            payload["draft"] = draft
+            draft_record = await session.scalar(
+                select(EmailDraft)
+                .where(
+                    EmailDraft.id == UUID(saved_id),
+                    EmailDraft.execution_id == run.id,
+                    EmailDraft.organization_id == run.organization_id,
+                )
+                .with_for_update()
+            )
+            if draft_record is None or draft_record.status != "pending_review":
+                raise NodeFailure("DRAFT_UNAVAILABLE", "The current draft is not awaiting review.")
+            payload["draft"] = draft_snapshot(draft_record)
+            context["draft"] = payload["draft"]
         return Outcome({"approval_required": True}, approval=payload)
     raise NodeFailure(
         "NODE_NOT_CONFIGURED", "This node's provider or scoring service is not configured."

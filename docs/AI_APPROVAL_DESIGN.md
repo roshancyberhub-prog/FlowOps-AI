@@ -1,6 +1,6 @@
 # Milestone 4: qualification, drafts and protected mock delivery
 
-Status: design for the next implementation slice; not implemented yet.
+Status: strict provider contracts and the mock provider are unit-tested. Draft persistence, revision-bound review/editing and mock receipt handling are implemented for PostgreSQL CI verification; the full outreach interface/browser journey is still pending. No live provider is connected.
 
 The source CHATGPT.md explicitly authorizes a safe mock when provider credentials are unavailable. The credential check found no OpenAI key. Implement a provider-neutral interface and labelled deterministic mock; do not add live OpenAI calls or create/reuse a key without a separate credential decision. Live AI/provider verification remains unavailable. This is the user's explicit fallback, rather than an implicit credential choice.
 

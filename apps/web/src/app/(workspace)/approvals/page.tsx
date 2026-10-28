@@ -113,7 +113,14 @@ function ApprovalCard({ approval }: { approval: Approval }) {
   });
   const allowed = ["owner", "admin"].includes(organization.role);
   const draft = approval.payload.draft as
-    { subject?: string; body?: string; recipient?: string } | undefined;
+    | {
+        subject?: string;
+        body?: string;
+        recipient?: string;
+        simulated?: boolean;
+        provider?: string;
+      }
+    | undefined;
   return (
     <article className="panel p-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -133,6 +140,17 @@ function ApprovalCard({ approval }: { approval: Approval }) {
       <p className="mt-5 whitespace-pre-wrap break-words">
         {String(approval.payload.message ?? "")}
       </p>
+      {draft?.simulated && (
+        <p className="mt-4 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">
+          Mock AI draft · No live AI call was made. Email delivery is simulated
+          in the development demo.
+        </p>
+      )}
+      {approval.payload.mode === "test" && (
+        <p className="mt-3 text-xs font-semibold text-slate-500">
+          Test execution · protected actions stay simulated
+        </p>
+      )}
       {draft && (
         <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-4">
           <p className="break-words text-xs text-slate-500">

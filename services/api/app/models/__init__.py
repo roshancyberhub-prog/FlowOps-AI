@@ -16,6 +16,8 @@ from app.models.execution import WorkerHeartbeat as WorkerHeartbeat
 from app.models.execution import WorkflowExecution as WorkflowExecution
 from app.models.imports import ImportJob as ImportJob
 from app.models.imports import ImportRow as ImportRow
+from app.models.outreach import EmailDelivery as EmailDelivery
+from app.models.outreach import EmailDraft as EmailDraft
 from app.models.scoring import ScoringProfile as ScoringProfile
 
 

@@ -42,12 +42,14 @@ async def request_execution(
     idempotency_key: str,
     request_id: str,
     mode: str,
+    required_node_type: str | None = None,
 ) -> tuple[WorkflowExecution, bool]:
     workflow = await get_workflow(session, member, workflow_id)
     organization_id = member.organization_id
-    digest = payload_hash(
-        {"workflow_id": str(workflow_id), "input": data.model_dump(mode="json"), "mode": mode}
-    )
+    intent = {"workflow_id": str(workflow_id), "input": data.model_dump(mode="json"), "mode": mode}
+    if required_node_type:
+        intent["required_node_type"] = required_node_type
+    digest = payload_hash(intent)
     existing = await session.scalar(
         select(WorkflowExecution).where(
             WorkflowExecution.organization_id == organization_id,
@@ -83,6 +85,8 @@ async def request_execution(
     elif data.sample_lead:
         context = {"lead": data.sample_lead.model_dump(mode="json")}
     graph = Graph.model_validate(version.graph_definition)
+    if required_node_type and not any(node.type == required_node_type for node in graph.nodes):
+        raise HTTPException(409, "Choose a published workflow containing a draft-generation node.")
     trigger = next(node for node in graph.nodes if node.type.startswith("trigger."))
     execution = WorkflowExecution(
         organization_id=member.organization_id,
