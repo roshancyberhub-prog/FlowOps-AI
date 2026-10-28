@@ -77,6 +77,35 @@ test("register, persist leads, edit, archive, restore and isolate workspaces", a
     fullPage: true,
   });
   await page.setViewportSize({ width: 390, height: 844 });
+  const mobileLayout = await page.evaluate(() => ({
+    width: window.innerWidth,
+    scroll: document.documentElement.scrollWidth,
+    wide: Array.from(document.querySelectorAll("body *"))
+      .filter((element) => {
+        if (element.getBoundingClientRect().right <= window.innerWidth)
+          return false;
+        let parent = element.parentElement;
+        while (parent && parent !== document.body) {
+          if (
+            ["auto", "hidden", "scroll"].includes(
+              getComputedStyle(parent).overflowX,
+            )
+          )
+            return false;
+          parent = parent.parentElement;
+        }
+        return true;
+      })
+      .map((element) => ({
+        tag: element.tagName,
+        classes: element.className,
+        right: element.getBoundingClientRect().right,
+      }))
+      .slice(0, 15),
+  }));
+  console.log("Mobile layout", JSON.stringify(mobileLayout));
+  expect(mobileLayout.scroll).toBeLessThanOrEqual(mobileLayout.width);
+
   await page.screenshot({
     path: testInfo.outputPath("leads-mobile.png"),
     fullPage: true,
