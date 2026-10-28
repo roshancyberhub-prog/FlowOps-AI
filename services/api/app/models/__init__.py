@@ -1,19 +1,19 @@
-from datetime import UTC, datetime
+from datetime import datetime
 from uuid import UUID, uuid4
 
 from fastapi_users.db import SQLAlchemyBaseUserTableUUID
 from fastapi_users_db_sqlalchemy.access_token import SQLAlchemyBaseAccessTokenTableUUID
 from sqlalchemy import CheckConstraint, DateTime, ForeignKey, String, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column
 
-
-def now() -> datetime:
-    return datetime.now(UTC)
-
-
-class Base(DeclarativeBase):
-    pass
+from app.db.base import Base, now
+from app.models.execution import ApprovalRequest as ApprovalRequest
+from app.models.execution import ExecutionStep as ExecutionStep
+from app.models.execution import Notification as Notification
+from app.models.execution import OutboxEntry as OutboxEntry
+from app.models.execution import WorkerHeartbeat as WorkerHeartbeat
+from app.models.execution import WorkflowExecution as WorkflowExecution
 
 
 class User(SQLAlchemyBaseUserTableUUID, Base):

@@ -157,16 +157,18 @@ async def duplicate(
     )
 
 
-@router.post("/{workflow_id}/{action}", response_model=WorkflowRead)
+@router.post("/{workflow_id}/pause", response_model=WorkflowRead)
+@router.post("/{workflow_id}/resume", response_model=WorkflowRead)
+@router.post("/{workflow_id}/archive", response_model=WorkflowRead)
 async def change_status(
     workflow_id: UUID,
-    action: Literal["pause", "resume", "archive"],
     data: Revision,
     request: Request,
     member: Membership = Depends(membership),
     session: AsyncSession = Depends(get_session),
 ) -> Workflow:
     require_role(member, WRITE_ROLES)
+    action = request.url.path.rsplit("/", 1)[-1]
     return await workflows.transition(
         session,
         member,

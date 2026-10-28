@@ -1,7 +1,7 @@
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import PostgresDsn, RedisDsn
+from pydantic import Field, PostgresDsn, RedisDsn
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -12,6 +12,9 @@ class Settings(BaseSettings):
     redis_url: RedisDsn
     web_origin: str = "http://localhost:3000"
     session_lifetime_seconds: int = 3600
+    max_step_attempts: int = Field(default=3, ge=1, le=5)
+    execution_max_active_seconds: int = Field(default=600, ge=30, le=3600)
+    approval_ttl_hours: int = Field(default=72, ge=1, le=168)
 
 
 @lru_cache
