@@ -18,6 +18,7 @@ from app.execution.triggers import schedule_due
 from app.models import (
     ApprovalRequest,
     ExecutionStep,
+    ImportJob,
     OutboxEntry,
     WorkerHeartbeat,
     WorkflowExecution,
@@ -124,6 +125,26 @@ async def dispatch_pending() -> None:
                 latest.published_at = None
                 latest.available_at = now()
                 run.next_run_at = now()
+        stale_imports = await session.scalars(
+            select(ImportJob)
+            .where(
+                ImportJob.status.in_(["queued", "running", "retrying"]),
+                ImportJob.next_run_at < now() - timedelta(seconds=60),
+            )
+            .with_for_update(skip_locked=True)
+            .limit(100)
+        )
+        for job in stale_imports:
+            latest = await session.scalar(
+                select(OutboxEntry)
+                .where(OutboxEntry.import_job_id == job.id)
+                .order_by(OutboxEntry.created_at.desc())
+                .limit(1)
+            )
+            if latest and latest.published_at is not None:
+                latest.published_at = None
+                latest.available_at = now()
+                job.next_run_at = now()
         await session.commit()
         rows = await session.scalars(
             select(OutboxEntry)
@@ -137,8 +158,8 @@ async def dispatch_pending() -> None:
             try:
                 await asyncio.to_thread(
                     celery_app.send_task,
-                    "flowops.execute",
-                    args=[str(entry.execution_id)],
+                    "flowops.execute" if entry.execution_id else "flowops.import",
+                    args=[str(entry.execution_id or entry.import_job_id)],
                     retry=False,
                 )
                 entry.published_at = now()
@@ -174,3 +195,13 @@ def configure_worker_logging(**kwargs: object) -> None:
     root = logging.getLogger()
     root.handlers = [json_handler()]
     root.setLevel(logging.WARNING)
+
+
+@celery_app.task(name="flowops.import")
+def import_csv(job_id: str) -> None:
+    from app.leads.import_worker import process_import
+
+    try:
+        asyncio.run(process_import(worker_sessions(), UUID(job_id)))
+    except Exception:
+        logging.getLogger("flowops.worker").error("import_task_failed", extra={"import_id": job_id})

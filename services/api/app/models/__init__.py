@@ -14,6 +14,8 @@ from app.models.execution import Notification as Notification
 from app.models.execution import OutboxEntry as OutboxEntry
 from app.models.execution import WorkerHeartbeat as WorkerHeartbeat
 from app.models.execution import WorkflowExecution as WorkflowExecution
+from app.models.imports import ImportJob as ImportJob
+from app.models.imports import ImportRow as ImportRow
 from app.models.scoring import ScoringProfile as ScoringProfile
 
 

@@ -94,8 +94,18 @@ class ApprovalRequest(Base):
 
 class OutboxEntry(Base):
     __tablename__ = "outbox_entries"
+    __table_args__ = (
+        CheckConstraint(
+            "(execution_id IS NOT NULL AND import_job_id IS NULL) OR "
+            "(execution_id IS NULL AND import_job_id IS NOT NULL)",
+            name="outbox_one_target",
+        ),
+    )
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
-    execution_id: Mapped[UUID] = mapped_column(ForeignKey("workflow_executions.id"), index=True)
+    execution_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("workflow_executions.id"), index=True
+    )
+    import_job_id: Mapped[UUID | None] = mapped_column(ForeignKey("import_jobs.id"), index=True)
     dispatch_key: Mapped[str] = mapped_column(String(100), unique=True)
     available_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now, index=True)
     published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
