@@ -148,3 +148,108 @@ async def test_queued_cancellation_prevents_steps():
                 )
                 is None
             )
+
+
+async def test_stale_external_intent_fails_uncertain_without_resending(monkeypatch):
+    from app.workflows.registry import REGISTRY, NodeSpec
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        headers, run = await prepare(client, ["trigger.manual", "action.record_result"])
+        run_id = UUID(run["id"])
+        await engine.process_execution(session_factory, run_id)
+        original = REGISTRY["action.record_result"]
+        monkeypatch.setitem(
+            REGISTRY,
+            original.type,
+            NodeSpec(
+                original.type,
+                original.title,
+                original.config,
+                original.category,
+                side_effect="external",
+            ),
+        )
+        async with session_factory() as session:
+            saved = await session.get(WorkflowExecution, run_id)
+            saved.status = "running"
+            saved.node_attempt = 1
+            saved.lease_token = uuid4()
+            saved.lease_until = now() - timedelta(seconds=1)
+            session.add(
+                ExecutionStep(
+                    execution_id=run_id,
+                    node_id="node_1",
+                    node_type="action.record_result",
+                    attempt_number=1,
+                )
+            )
+            await session.commit()
+        await engine.process_execution(session_factory, run_id)
+        result = (await client.get("/api/v1/executions/" + run["id"], headers=headers)).json()
+        assert result["status"] == "failed"
+        assert result["error_code"] == "UNCERTAIN_EXTERNAL_RESULT"
+        assert (
+            await client.post("/api/v1/executions/" + run["id"] + "/retry", headers=headers)
+        ).status_code == 409
+
+
+async def test_expired_checkpoint_cancels_without_running_next_node():
+    from app.execution.worker import expire_approvals
+    from app.models import ApprovalRequest
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        headers, run = await prepare(
+            client,
+            ["trigger.manual", "action.request_approval", "action.record_result"],
+            {1: {"kind": "continue"}},
+        )
+        run_id = UUID(run["id"])
+        await engine.process_execution(session_factory, run_id)
+        await engine.process_execution(session_factory, run_id)
+        async with session_factory() as session:
+            approval = await session.scalar(
+                select(ApprovalRequest).where(ApprovalRequest.execution_id == run_id)
+            )
+            approval.expires_at = now() - timedelta(seconds=1)
+            await session.commit()
+        await expire_approvals(session_factory)
+        await engine.process_execution(session_factory, run_id)
+        result = (await client.get("/api/v1/executions/" + run["id"], headers=headers)).json()
+        assert result["status"] == "cancelled"
+        assert (await client.get("/api/v1/approvals", headers=headers)).json()["items"][0][
+            "status"
+        ] == "expired"
+
+
+async def test_broker_failure_retains_outbox_for_later_publication(monkeypatch):
+    from app.execution import worker
+    from app.models import OutboxEntry
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        _, run = await prepare(client, ["trigger.manual", "action.record_result"])
+        run_id = UUID(run["id"])
+
+        def unavailable(*args, **kwargs):
+            raise ConnectionError("This sensitive provider text must not be stored.")
+
+        monkeypatch.setattr(worker.celery_app, "send_task", unavailable)
+        await worker.dispatch_pending()
+        async with session_factory() as session:
+            outbox = await session.scalar(
+                select(OutboxEntry).where(OutboxEntry.execution_id == run_id)
+            )
+            assert outbox.published_at is None
+            assert outbox.last_error == "BROKER_UNAVAILABLE"
+            outbox.available_at = now() - timedelta(seconds=1)
+            await session.commit()
+        sent = []
+        monkeypatch.setattr(
+            worker.celery_app, "send_task", lambda *args, **kwargs: sent.append(kwargs["args"])
+        )
+        await worker.dispatch_pending()
+        assert [str(run_id)] in sent
+        async with session_factory() as session:
+            outbox = await session.scalar(
+                select(OutboxEntry).where(OutboxEntry.execution_id == run_id)
+            )
+            assert outbox.published_at is not None

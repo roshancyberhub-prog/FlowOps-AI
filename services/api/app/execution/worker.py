@@ -1,4 +1,5 @@
 import asyncio
+import logging
 from datetime import timedelta
 from uuid import UUID
 
@@ -10,8 +11,14 @@ from sqlalchemy.pool import NullPool
 
 from app.core.config import get_settings
 from app.db.base import now
-from app.execution.engine import process_execution
-from app.models import OutboxEntry, WorkerHeartbeat, WorkflowExecution
+from app.execution.engine import finish, process_execution
+from app.models import (
+    ApprovalRequest,
+    ExecutionStep,
+    OutboxEntry,
+    WorkerHeartbeat,
+    WorkflowExecution,
+)
 
 settings = get_settings()
 celery_app = Celery("flowops", broker=str(settings.redis_url))
@@ -43,8 +50,46 @@ def worker_sessions() -> async_sessionmaker:
     )
 
 
+async def expire_approvals(factory: async_sessionmaker) -> None:
+    async with factory() as session:
+        expired = list(
+            await session.scalars(
+                select(ApprovalRequest)
+                .where(ApprovalRequest.status == "pending", ApprovalRequest.expires_at <= now())
+                .limit(100)
+            )
+        )
+        for item in expired:
+            run = await session.scalar(
+                select(WorkflowExecution)
+                .where(WorkflowExecution.id == item.execution_id)
+                .with_for_update()
+            )
+            approval = await session.scalar(
+                select(ApprovalRequest)
+                .where(ApprovalRequest.id == item.id)
+                .with_for_update()
+                .execution_options(populate_existing=True)
+            )
+            if (
+                run
+                and approval
+                and approval.status == "pending"
+                and run.status == "waiting_for_approval"
+            ):
+                approval.status = "expired"
+                approval.decided_at = now()
+                step = await session.get(ExecutionStep, approval.execution_step_id)
+                if step:
+                    step.status = "expired"
+                    step.completed_at = now()
+                finish(run, "cancelled")
+            await session.commit()
+
+
 async def dispatch_pending() -> None:
     factory = worker_sessions()
+    await expire_approvals(factory)
     async with factory() as session:
         await session.execute(
             insert(WorkerHeartbeat)
@@ -101,9 +146,18 @@ async def dispatch_pending() -> None:
 
 @celery_app.task(name="flowops.dispatch")
 def dispatch() -> None:
-    asyncio.run(dispatch_pending())
+    try:
+        asyncio.run(dispatch_pending())
+    except Exception:
+        logging.getLogger("flowops.worker").error("dispatch_failed")
 
 
 @celery_app.task(name="flowops.execute")
 def execute(execution_id: str) -> None:
-    asyncio.run(process_execution(worker_sessions(), UUID(execution_id)))
+    try:
+        asyncio.run(process_execution(worker_sessions(), UUID(execution_id)))
+    except Exception:
+        # Durable reconciliation recovers this lease; avoid logging SQL or provider inputs.
+        logging.getLogger("flowops.worker").error(
+            "execution_task_failed", extra={"execution_id": execution_id}
+        )

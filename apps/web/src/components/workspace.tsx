@@ -6,6 +6,8 @@ import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Activity,
+  ListChecks,
+  ShieldCheck,
   ArrowUpRight,
   GitBranch,
   LayoutDashboard,
@@ -144,6 +146,8 @@ export function Workspace({ children }: { children: React.ReactNode }) {
     { href: "/", label: "Overview", icon: LayoutDashboard },
     { href: "/workflows", label: "Workflows", icon: GitBranch },
     { href: "/leads", label: "Leads", icon: Users },
+    { href: "/executions", label: "Executions", icon: ListChecks },
+    { href: "/approvals", label: "Approvals", icon: ShieldCheck },
     { href: "/team", label: "Team & workspace", icon: UsersRound },
     ...(organization.role === "owner" || organization.role === "admin"
       ? [{ href: "/activity", label: "Audit activity", icon: Activity }]

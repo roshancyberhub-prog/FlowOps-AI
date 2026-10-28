@@ -12,6 +12,7 @@ import { api } from "@/lib/api";
 import type { NodeSpec, Workflow, WorkflowVersion } from "@/lib/workflows";
 import { useWorkspace } from "@/components/workspace";
 import { Button } from "@/components/ui/button";
+import { RunWorkflow } from "@/features/executions/run-workflow";
 import { WorkflowCanvas } from "@/components/workflows/canvas";
 
 export default function WorkflowPage() {
@@ -152,6 +153,16 @@ function Editor({
               ? `Latest published: v${workflow.version_number}`
               : "Not yet published"}
         </span>
+        <RunWorkflow
+          workflowId={workflow.id}
+          versionId={version?.id ?? workflow.current_version_id}
+          versionNumber={version?.version_number ?? workflow.version_number}
+          disabled={
+            dirty ||
+            organization.role === "viewer" ||
+            workflow.status === "archived"
+          }
+        />
         {versions.hasNextPage && (
           <Button
             variant="outline"
