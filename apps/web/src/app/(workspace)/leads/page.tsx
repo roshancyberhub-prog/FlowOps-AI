@@ -176,7 +176,7 @@ export default function Leads() {
             )}
           </div>
         ) : (
-          <div className="min-w-0 max-w-full overflow-x-auto">
+          <div className="relative min-w-0 max-w-full overflow-x-auto">
             <table className="min-w-[640px]">
               <thead>
                 <tr>
