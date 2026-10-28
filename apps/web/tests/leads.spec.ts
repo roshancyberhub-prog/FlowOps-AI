@@ -80,6 +80,18 @@ test("register, persist leads, edit, archive, restore and isolate workspaces", a
   const mobileLayout = await page.evaluate(() => ({
     width: window.innerWidth,
     scroll: document.documentElement.scrollWidth,
+    body: document.body.getBoundingClientRect().toJSON(),
+    allWide: Array.from(document.querySelectorAll("body *"))
+      .filter(
+        (element) => element.getBoundingClientRect().right > window.innerWidth,
+      )
+      .slice(0, 20)
+      .map((element) => ({
+        tag: element.tagName,
+        classes: String(element.className),
+        right: element.getBoundingClientRect().right,
+        overflow: getComputedStyle(element).overflowX,
+      })),
     wide: Array.from(document.querySelectorAll("body *"))
       .filter((element) => {
         if (element.getBoundingClientRect().right <= window.innerWidth)
@@ -104,7 +116,9 @@ test("register, persist leads, edit, archive, restore and isolate workspaces", a
       .slice(0, 15),
   }));
   console.log("Mobile layout", JSON.stringify(mobileLayout));
-  expect(mobileLayout.scroll).toBeLessThanOrEqual(mobileLayout.width);
+  await expect
+    .poll(() => page.evaluate(() => document.documentElement.scrollWidth))
+    .toBeLessThanOrEqual(mobileLayout.width);
 
   await page.screenshot({
     path: testInfo.outputPath("leads-mobile.png"),

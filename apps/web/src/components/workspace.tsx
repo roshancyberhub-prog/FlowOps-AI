@@ -150,8 +150,8 @@ export function Workspace({ children }: { children: React.ReactNode }) {
   ];
   return (
     <Context.Provider value={{ organization, user: me.data }}>
-      <div className="min-h-screen lg:grid lg:grid-cols-[232px_1fr]">
-        <aside className="flex flex-col bg-[#12232d] text-slate-300 lg:sticky lg:top-0 lg:h-screen">
+      <div className="grid min-h-screen grid-cols-[minmax(0,1fr)] lg:grid-cols-[232px_minmax(0,1fr)]">
+        <aside className="flex min-w-0 flex-col bg-[#12232d] text-slate-300 lg:sticky lg:top-0 lg:h-screen">
           <Link
             href="/"
             className="flex items-center gap-2 px-6 py-7 text-xl font-semibold text-white"
@@ -252,7 +252,7 @@ export function Workspace({ children }: { children: React.ReactNode }) {
           )}
           <main
             key={organization.id}
-            className="mx-auto max-w-[1500px] px-5 py-8 lg:px-10"
+            className="mx-auto min-w-0 max-w-[1500px] px-5 py-8 lg:px-10"
           >
             {children}
           </main>
