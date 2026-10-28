@@ -5,7 +5,6 @@ from uuid import uuid4
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
-from pythonjsonlogger.json import JsonFormatter
 from redis.asyncio import Redis
 from sqlalchemy import text
 from starlette.exceptions import HTTPException
@@ -16,15 +15,12 @@ from app.api.v1.leads import router as leads_router
 from app.api.v1.organizations import router as organizations_router
 from app.api.v1.workflows import router as workflows_router
 from app.core.config import get_settings
+from app.core.logging import configure_logging
 from app.db.session import engine
 from app.security.auth import UserCreate, UserRead, backend, users
 from app.security.http import RequestGuard
 
-handler = logging.StreamHandler()
-handler.setFormatter(JsonFormatter("%(asctime)s %(levelname)s %(name)s %(message)s"))
-logging.getLogger("flowops").addHandler(handler)
-logging.getLogger("flowops").setLevel(logging.INFO)
-logging.getLogger("flowops").propagate = False
+configure_logging()
 
 
 @asynccontextmanager

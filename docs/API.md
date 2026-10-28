@@ -28,4 +28,27 @@ Errors contain an `error` object with `code`, `message`, `request_id`, and `deta
 
 `GET/POST /workflows` lists paginated workflows or creates a draft. `GET/PATCH /workflows/{id}` reads or saves it; writes include `expected_revision` to reject stale edits. `POST /workflows/{id}/validate` validates the stored graph, or a supplied unsaved graph, without executing it. `POST /workflows/{id}/publish` validates and freezes a new version transactionally. `/pause`, `/resume`, `/archive` and `/duplicate` implement the corresponding transitions. `GET /workflows/{id}/versions` is paginated; `/versions/{version_id}` reads an immutable snapshot. `/workflows/node-types` and `/workflows/templates` expose the bounded registry and starter templates.
 
-Graph schema version 1 permits one trigger, one edge per output and branches without joins or cycles. Node configuration and action permissions are validated on publication. Every email path must include a generated draft followed by a fresh approval node. A later draft invalidates the earlier approval path. These are definition constraints; execution is the next milestone.
+Graph schema version 1 permits one trigger, one edge per output and branches without joins or cycles. Node configuration and action permissions are validated on publication. Every email path must include a generated draft followed by a fresh approval node. A later draft invalidates the earlier approval path. The worker enforces the pinned definition and current user permissions during execution.
+
+## Workflow execution
+
+| Method | Route | Behavior |
+|---|---|---|
+| POST | `/workflows/{id}/test-runs` | Queue published version in test mode |
+| POST | `/workflows/{id}/runs` | Queue published version in live mode |
+| GET | `/executions` | Paginated organization runs; optional status/workflow_id |
+| GET | `/executions/{id}` | Pinned version, status, context and failure summary |
+| GET | `/executions/{id}/steps` | Attempt history, 100 per page; frames restricted to owner/admin |
+| POST | `/executions/{id}/cancel` | Cooperative cancellation; completed effects remain |
+| POST | `/executions/{id}/retry` | Retry an eligible failed node, at most five manual retries |
+| GET | `/approvals` | Paginated requests, optional status |
+| GET | `/approvals/{id}` | Current request and review payload |
+| POST | `/approvals/{id}/approve` | Owner/admin approval with current revision and payload_hash |
+| POST | `/approvals/{id}/reject` | Owner/admin rejection; cancel the waiting run |
+| GET | `/execution-health` | Authenticated dispatch heartbeat, without host details |
+
+Run requests require `Idempotency-Key` (1–200 alphanumeric/colon/underscore/hyphen characters). JSON accepts optional `workflow_version_id` and either `lead_id` or `sample_lead`. The version must belong to this workflow and a stored lead must belong to this organization. New requests return 202; identical replay returns 200; conflicting replay returns 409. Viewers cannot request, retry or cancel runs.
+
+Test mode records execution and approval history while simulating lead status changes and internal notifications. Live mode applies those database changes. AI, scoring and send nodes currently fail explicitly as unconfigured. Manual execution can exercise any published trigger definition; automatic lead-created and interval triggers run the active published version in live mode. Inbound webhook dispatch is not implemented yet.
+
+Generic checkpoints use `kind: continue`; email checkpoints default to `kind: email` and require a preceding draft. The decision body contains `revision`, `payload_hash` and an optional comment up to 1000 characters. Stale, completed or expired reviews return 409. Unknown external outcomes cannot be manually or automatically retried.

@@ -304,3 +304,27 @@ async def test_scheduler_coalesces_missed_intervals_and_honors_pause():
             await session.commit()
         await schedule_due(session_factory)
         assert (await client.get("/api/v1/executions", headers=headers)).json()["total"] == 2
+
+
+async def test_delay_persists_due_time_and_duplicate_delivery_cannot_skip_it():
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        headers, run = await prepare(
+            client, ["trigger.manual", "action.delay", "action.record_result"], {1: {"seconds": 60}}
+        )
+        run_id = UUID(run["id"])
+        await engine.process_execution(session_factory, run_id)
+        await engine.process_execution(session_factory, run_id)
+        await engine.process_execution(session_factory, run_id)
+        result = (
+            await client.get("/api/v1/executions/" + run["id"] + "/steps", headers=headers)
+        ).json()
+        assert result["total"] == 2
+        async with session_factory() as session:
+            saved = await session.get(WorkflowExecution, run_id)
+            assert saved.next_run_at > now() + timedelta(seconds=50)
+            saved.next_run_at = now() - timedelta(seconds=1)
+            await session.commit()
+        await engine.process_execution(session_factory, run_id)
+        assert (await client.get("/api/v1/executions/" + run["id"], headers=headers)).json()[
+            "status"
+        ] == "succeeded"

@@ -1,5 +1,6 @@
 import asyncio
 import copy
+import logging
 import time
 from datetime import timedelta
 from uuid import UUID, uuid4
@@ -184,6 +185,9 @@ async def process_execution(factory: async_sessionmaker[AsyncSession], execution
                         enqueue(session, run, now() + timedelta(seconds=outcome.delay_seconds))
                 run.context = context
         except Exception as exc:
+            # Savepoint rollback can expire ORM state changed by a failed handler.
+            await session.refresh(run)
+            await session.refresh(step)
             failure = classify_error(exc, spec.side_effect)
             step.status = "failed"
             step.completed_at = now()
@@ -204,3 +208,16 @@ async def process_execution(factory: async_sessionmaker[AsyncSession], execution
         run.lease_token = None
         run.lease_until = None
         await session.commit()
+        logging.getLogger("flowops.execution").info(
+            "step_completed",
+            extra={
+                "execution_id": str(run.id),
+                "request_id": run.correlation_id,
+                "node_id": node.id,
+                "node_type": node.type,
+                "attempt": step.attempt_number,
+                "step_status": step.status,
+                "duration_ms": duration,
+                "error_code": step.error_code,
+            },
+        )

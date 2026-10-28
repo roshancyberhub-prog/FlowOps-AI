@@ -4,12 +4,14 @@ from datetime import timedelta
 from uuid import UUID
 
 from celery import Celery
+from celery.signals import setup_logging
 from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool
 
 from app.core.config import get_settings
+from app.core.logging import configure_logging, json_handler
 from app.db.base import now
 from app.execution.engine import finish, process_execution
 from app.execution.triggers import schedule_due
@@ -21,6 +23,7 @@ from app.models import (
     WorkflowExecution,
 )
 
+configure_logging()
 settings = get_settings()
 celery_app = Celery("flowops", broker=str(settings.redis_url))
 celery_app.conf.update(
@@ -163,3 +166,11 @@ def execute(execution_id: str) -> None:
         logging.getLogger("flowops.worker").error(
             "execution_task_failed", extra={"execution_id": execution_id}
         )
+
+
+@setup_logging.connect
+def configure_worker_logging(**kwargs: object) -> None:
+    configure_logging()
+    root = logging.getLogger()
+    root.handlers = [json_handler()]
+    root.setLevel(logging.WARNING)
