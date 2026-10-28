@@ -14,6 +14,7 @@ from app.models.execution import Notification as Notification
 from app.models.execution import OutboxEntry as OutboxEntry
 from app.models.execution import WorkerHeartbeat as WorkerHeartbeat
 from app.models.execution import WorkflowExecution as WorkflowExecution
+from app.models.scoring import ScoringProfile as ScoringProfile
 
 
 class User(SQLAlchemyBaseUserTableUUID, Base):
@@ -68,6 +69,9 @@ class Lead(Base):
     status: Mapped[str] = mapped_column(String(30), default="new", index=True)
     score: Mapped[int] = mapped_column(default=0)
     score_reasons: Mapped[list] = mapped_column(JSONB, default=list)
+    score_profile_id: Mapped[UUID | None] = mapped_column(ForeignKey("scoring_profiles.id"))
+    score_profile_version: Mapped[int | None]
+    scored_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now, index=True)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now, onupdate=now)
 

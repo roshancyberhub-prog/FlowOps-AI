@@ -13,6 +13,7 @@ from starlette.responses import JSONResponse, Response
 from app.api.v1.executions import router as executions_router
 from app.api.v1.leads import router as leads_router
 from app.api.v1.organizations import router as organizations_router
+from app.api.v1.scoring import router as scoring_router
 from app.api.v1.workflows import router as workflows_router
 from app.core.config import get_settings
 from app.core.logging import configure_logging
@@ -38,6 +39,7 @@ app.include_router(organizations_router, prefix="/api/v1")
 app.include_router(leads_router, prefix="/api/v1")
 app.include_router(workflows_router, prefix="/api/v1")
 app.include_router(executions_router, prefix="/api/v1")
+app.include_router(scoring_router, prefix="/api/v1")
 
 
 def error(

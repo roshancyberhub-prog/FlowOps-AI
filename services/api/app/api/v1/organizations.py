@@ -8,7 +8,8 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_session
-from app.models import AuditLog, Membership, Organization, User
+from app.leads.scoring import ScoringConfig
+from app.models import AuditLog, Membership, Organization, ScoringProfile, User
 from app.security.auth import UserRead, current_user
 from app.security.permissions import ADMIN_ROLES, membership, require_role
 from app.services.leads import audit
@@ -78,6 +79,15 @@ async def create_organization(
     org = Organization(name=data.name, slug=str(uuid4()))
     session.add(org)
     await session.flush()
+    session.add(
+        ScoringProfile(
+            organization_id=org.id,
+            version_number=1,
+            name="Baseline ICP",
+            configuration=ScoringConfig().model_dump(mode="json"),
+            created_by=user.id,
+        )
+    )
     member = Membership(organization_id=org.id, user_id=user.id, role="owner")
     session.add(member)
     audit(session, member, "organization.created", org.id, request.state.request_id)

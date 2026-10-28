@@ -1,8 +1,9 @@
 import builtins
 from dataclasses import dataclass
 from typing import Literal, Self
+from uuid import UUID
 
-from pydantic import Field, model_validator
+from pydantic import Field, field_validator, model_validator
 
 from app.workflows.schema import StrictModel
 
@@ -22,6 +23,13 @@ class Approval(StrictModel):
 
 class Score(StrictModel):
     scoring_profile: str = Field(default="default", max_length=80)
+
+    @field_validator("scoring_profile")
+    @classmethod
+    def known_profile_reference(cls, value: str) -> str:
+        if value == "default":
+            return value
+        return str(UUID(value))
 
 
 class Draft(StrictModel):

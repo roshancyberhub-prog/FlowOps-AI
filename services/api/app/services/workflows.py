@@ -8,6 +8,7 @@ from app.execution.triggers import scheduled_time
 from app.models import Membership, Workflow, WorkflowVersion
 from app.schemas.workflows import WorkflowCreate, WorkflowPatch
 from app.services.leads import audit
+from app.services.scoring import get_profile
 from app.workflows.graph import validate_graph
 from app.workflows.registry import REGISTRY
 from app.workflows.schema import Graph
@@ -102,6 +103,14 @@ async def publish_workflow(
     graph = Graph.model_validate(workflow.draft_graph)
     for node in graph.nodes:
         node.config = REGISTRY[node.type].config.model_validate(node.config).model_dump(mode="json")
+        if node.type == "action.score_lead":
+            configured = node.config["scoring_profile"]
+            try:
+                profile_id = None if configured == "default" else UUID(configured)
+            except ValueError as exc:
+                raise HTTPException(422, "Choose default or a valid scoring profile ID.") from exc
+            profile = await get_profile(session, member.organization_id, profile_id)
+            node.config["scoring_profile"] = str(profile.id)
     version = WorkflowVersion(
         workflow_id=workflow.id,
         version_number=workflow.version_number + 1,

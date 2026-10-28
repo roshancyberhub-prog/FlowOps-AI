@@ -5,9 +5,11 @@ from pydantic import ValidationError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.db.base import now
 from app.execution.errors import NodeFailure
 from app.execution.logic import compare
-from app.models import Lead, Notification, WorkflowExecution
+from app.leads.scoring import ScoringConfig, calculate_score
+from app.models import Lead, Notification, ScoringProfile, WorkflowExecution
 from app.schemas.leads import LeadCreate
 from app.workflows.registry import REGISTRY
 from app.workflows.schema import Node
@@ -53,6 +55,64 @@ async def handle_node(
         duplicate = await session.scalar(query.limit(1)) is not None
         context["duplicate"] = duplicate
         return Outcome({"duplicate": duplicate})
+    if node.type == "action.score_lead":
+        if not context.get("lead"):
+            raise NodeFailure("LEAD_REQUIRED", "Choose a lead before scoring.")
+        profile_query = select(ScoringProfile).where(
+            ScoringProfile.organization_id == run.organization_id
+        )
+        configured = config["scoring_profile"]
+        # Definitions published before scoring existed retain the immutable baseline.
+        profile_query = (
+            profile_query.where(ScoringProfile.version_number == 1)
+            if configured == "default"
+            else profile_query.where(ScoringProfile.id == UUID(configured))
+        )
+        profile = await session.scalar(profile_query)
+        if profile is None:
+            raise NodeFailure(
+                "PROFILE_UNAVAILABLE", "This workflow's scoring profile is unavailable."
+            )
+        result = calculate_score(
+            context["lead"], ScoringConfig.model_validate(profile.configuration)
+        )
+        scored_at = now()
+        context["lead"].update(
+            {
+                "score": result.score,
+                "score_reasons": result.reasons,
+                "score_profile_id": str(profile.id),
+                "score_profile_version": profile.version_number,
+                "scored_at": scored_at.isoformat(),
+            }
+        )
+        if run.mode == "live":
+            if not context.get("lead_id"):
+                raise NodeFailure("STORED_LEAD_REQUIRED", "Live scoring requires a stored lead.")
+            lead = await session.scalar(
+                select(Lead)
+                .where(
+                    Lead.id == UUID(context["lead_id"]), Lead.organization_id == run.organization_id
+                )
+                .with_for_update()
+            )
+            if lead is None or lead.status == "archived":
+                raise NodeFailure("LEAD_UNAVAILABLE", "The lead is unavailable or archived.")
+            lead.score = result.score
+            lead.score_reasons = result.reasons
+            lead.score_profile_id = profile.id
+            lead.score_profile_version = profile.version_number
+            lead.scored_at = scored_at
+        return Outcome(
+            {
+                "score": result.score,
+                "reasons": result.reasons,
+                "profile_id": str(profile.id),
+                "profile_version": profile.version_number,
+                "missing_fields": result.missing_fields,
+                "simulated": run.mode == "test",
+            }
+        )
     if node.type == "action.update_lead_status":
         if "lead" not in context:
             raise NodeFailure("LEAD_REQUIRED", "Choose a lead before changing its status.")
