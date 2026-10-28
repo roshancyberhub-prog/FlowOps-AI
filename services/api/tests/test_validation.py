@@ -3,6 +3,7 @@ from pydantic import ValidationError
 
 from app.models import Membership
 from app.schemas.leads import LeadCreate, LeadPatch
+from app.security.auth import UserCreate
 from app.security.permissions import WRITE_ROLES, require_role
 
 
@@ -39,3 +40,17 @@ def test_viewer_cannot_write():
     with pytest.raises(HTTPException) as error:
         require_role(Membership(role="viewer"), WRITE_ROLES)
     assert error.value.status_code == 403
+
+
+def test_registration_rejects_non_string_email_with_validation_error():
+    with pytest.raises(ValidationError):
+        UserCreate.model_validate(
+            {"email": 123, "password": "Fictional-password-42", "display_name": "Test"}
+        )
+
+
+def test_lead_website_must_fit_database_column():
+    with pytest.raises(ValidationError):
+        LeadCreate(
+            name="Buyer", email="buyer@example.com", website="https://example.com/" + "a" * 2035
+        )

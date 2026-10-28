@@ -19,7 +19,7 @@ class LeadFields(BaseModel):
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
     company: str | None = Field(default=None, max_length=200)
     job_title: str | None = Field(default=None, max_length=150)
-    website: HttpUrl | None = None
+    website: HttpUrl | None = Field(default=None, max_length=2048)
     industry: str | None = Field(default=None, max_length=100)
     company_size: str | None = Field(default=None, max_length=50)
     country: str | None = Field(default=None, max_length=100)

@@ -25,8 +25,8 @@ class UserCreate(schemas.BaseUserCreate):
 
     @field_validator("email", mode="before")
     @classmethod
-    def normalize_email(cls, value: str) -> str:
-        return value.strip().lower()
+    def normalize_email(cls, value: object) -> object:
+        return value.strip().lower() if isinstance(value, str) else value
 
 
 async def get_user_db(session: AsyncSession = Depends(get_session)) -> AsyncIterator:
