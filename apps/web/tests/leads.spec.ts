@@ -52,7 +52,9 @@ test("register, persist leads, edit, archive, restore and isolate workspaces", a
   await page.getByLabel("Full name *", { exact: true }).fill("Duplicate Buyer");
   await page.getByLabel("Work email *", { exact: true }).fill(email);
   await page.getByRole("button", { name: "Save lead", exact: true }).click();
-  await expect(page.getByRole("alert")).toContainText("email already exists");
+  await expect(page.getByRole("dialog").getByRole("alert")).toContainText(
+    "email already exists",
+  );
   await page.getByRole("button", { name: "Cancel", exact: true }).click();
   page.once("dialog", (dialog) => dialog.accept());
   await page
