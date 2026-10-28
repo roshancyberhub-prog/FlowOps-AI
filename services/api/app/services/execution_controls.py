@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.base import now
 from app.execution.dispatch import enqueue
 from app.execution.engine import TERMINAL, finish
+from app.execution.hashing import payload_hash
 from app.execution.logic import next_node
 from app.models import (
     ApprovalRequest,
@@ -16,7 +17,7 @@ from app.models import (
     WorkflowVersion,
 )
 from app.schemas.executions import ApprovalDecision
-from app.services.executions import get_execution, payload_hash
+from app.services.executions import get_execution
 from app.services.leads import audit
 from app.workflows.schema import Graph
 
@@ -39,6 +40,11 @@ async def cancel_execution(
         for approval in approvals:
             approval.status = "cancelled"
             approval.decided_at = now()
+            approval.decided_by = member.user_id
+            step = await session.get(ExecutionStep, approval.execution_step_id)
+            if step:
+                step.status = "cancelled"
+                step.completed_at = now()
     audit(session, member, "execution.cancelled", run.id, request_id)
     await session.commit()
     return run
@@ -99,6 +105,11 @@ async def decide_approval(
         raise HTTPException(409, "This approval is no longer pending.")
     if approval.expires_at <= now():
         approval.status = "expired"
+        approval.decided_at = now()
+        step = await session.get(ExecutionStep, approval.execution_step_id)
+        if step:
+            step.status = "expired"
+            step.completed_at = now()
         finish(run, "cancelled")
         await session.commit()
         raise HTTPException(409, "This approval has expired.")

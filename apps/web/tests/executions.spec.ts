@@ -48,9 +48,9 @@ test("separate worker completes runs and resumes a reviewed checkpoint", async (
     .getByRole("button", { name: "Start background run", exact: true })
     .click();
   await expect(page).toHaveURL(/\/executions\/[^/]+$/);
-  await expect(
-    page.getByText("Succeeded", { exact: true }).first(),
-  ).toBeVisible({ timeout: 45000 });
+  await expect(page.getByTestId("execution-status")).toHaveText("Succeeded", {
+    timeout: 45000,
+  });
   await expect(page.getByText("Record result", { exact: true })).toBeVisible();
   await expect(page.getByText("Attempt 1", { exact: false })).toHaveCount(2);
   await page.screenshot({
@@ -58,9 +58,7 @@ test("separate worker completes runs and resumes a reviewed checkpoint", async (
     fullPage: true,
   });
   await page.reload();
-  await expect(
-    page.getByText("Succeeded", { exact: true }).first(),
-  ).toBeVisible();
+  await expect(page.getByTestId("execution-status")).toBeVisible();
 
   const org = await page.evaluate(() =>
     localStorage.getItem("flowops.workspace"),
@@ -136,9 +134,10 @@ test("separate worker completes runs and resumes a reviewed checkpoint", async (
   await page
     .getByRole("link", { name: "Review before continuing", exact: true })
     .click();
-  await expect(
-    page.getByText("Succeeded", { exact: true }).first(),
-  ).toBeVisible({ timeout: 45000 });
+  await expect(page.getByTestId("execution-status")).toHaveText("Succeeded", {
+    timeout: 45000,
+  });
+  await expect(page.getByText("Succeeded", { exact: true })).toHaveCount(4);
   await page.setViewportSize({ width: 390, height: 844 });
   await expect
     .poll(() => page.evaluate(() => document.documentElement.scrollWidth))

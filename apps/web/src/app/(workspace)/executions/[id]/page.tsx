@@ -92,7 +92,9 @@ export default function ExecutionDetail() {
                   <span className="capitalize">{run.data.mode}</span> mode
                 </p>
               </div>
-              <Status value={run.data.status} />
+              <div data-testid="execution-status">
+                <Status value={run.data.status} />
+              </div>
             </div>
             <dl className="mt-6 grid gap-5 text-sm sm:grid-cols-3">
               <div>

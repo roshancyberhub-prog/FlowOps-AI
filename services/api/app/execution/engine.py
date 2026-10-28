@@ -12,6 +12,7 @@ from app.db.base import now
 from app.execution.dispatch import enqueue
 from app.execution.errors import NodeFailure, classify_error, retry_delay, should_retry
 from app.execution.handlers import handle_node
+from app.execution.hashing import payload_hash
 from app.execution.logic import next_node
 from app.models import (
     ApprovalRequest,
@@ -21,7 +22,6 @@ from app.models import (
     WorkflowExecution,
     WorkflowVersion,
 )
-from app.services.executions import payload_hash
 from app.workflows.registry import REGISTRY
 from app.workflows.schema import Graph
 
@@ -150,7 +150,12 @@ async def process_execution(factory: async_sessionmaker[AsyncSession], execution
                     "PERMISSION_REVOKED", "The run's user no longer has permission for this node."
                 )
             async with session.begin_nested():
-                async with asyncio.timeout(spec.timeout_seconds):
+                async with asyncio.timeout(
+                    min(
+                        spec.timeout_seconds,
+                        settings.execution_max_active_seconds - run.active_duration_ms / 1000,
+                    )
+                ):
                     outcome = await handle_node(session, run, node, context)
                 step.output_summary = outcome.output
                 if outcome.approval is not None:

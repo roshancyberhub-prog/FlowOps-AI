@@ -26,6 +26,16 @@ export default function ExecutionsPage() {
       ),
     refetchInterval: 4000,
   });
+  const health = useQuery({
+    queryKey: ["execution-health", organization.id],
+    queryFn: () =>
+      api<{ status: string; last_dispatch_at: string | null }>(
+        "/execution-health",
+        {},
+        organization.id,
+      ),
+    refetchInterval: 10000,
+  });
   return (
     <>
       <p className="eyebrow mb-2">Every run, accounted for</p>
@@ -60,6 +70,11 @@ export default function ExecutionsPage() {
           ))}
         </select>
       </div>
+      <p className="mb-4 text-xs text-slate-500">
+        Worker dispatch:{" "}
+        {health.data?.status ??
+          (health.error ? "Unable to check" : "Checking…")}
+      </p>
       <section className="panel min-w-0 overflow-hidden">
         <QueryFeedback
           pending={runs.isPending}

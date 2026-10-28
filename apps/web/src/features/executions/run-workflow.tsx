@@ -1,9 +1,9 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { Play, X } from "lucide-react";
-import { api } from "@/lib/api";
+import { api, type LeadPage } from "@/lib/api";
 import type { Execution } from "@/lib/executions";
 import { Button } from "@/components/ui/button";
 import { useWorkspace } from "@/components/workspace";
@@ -63,6 +63,16 @@ function RunDialog({
   const router = useRouter();
   const dialog = useRef<HTMLDialogElement>(null);
   const [leadId, setLeadId] = useState("");
+  const [search, setSearch] = useState("");
+  const leads = useQuery({
+    queryKey: ["run-leads", organization.id, search],
+    queryFn: () =>
+      api<LeadPage>(
+        `/leads?page_size=25&search=${encodeURIComponent(search)}`,
+        {},
+        organization.id,
+      ),
+  });
   const [mode, setMode] = useState("test");
   const [key, setKey] = useState(() => crypto.randomUUID());
   useEffect(() => {
@@ -139,18 +149,47 @@ function RunDialog({
             : "Live mode can update stored leads and create notifications. Protected sends require approval."}
         </p>
         <div>
-          <label htmlFor="run-lead">Stored lead ID (optional)</label>
+          <label htmlFor="run-lead-search">Find a lead</label>
           <input
+            id="run-lead-search"
+            placeholder="Search name, company, or email"
+            value={search}
+            disabled={run.isPending}
+            onChange={(event) => setSearch(event.target.value)}
+          />
+          <label htmlFor="run-lead" className="mt-3">
+            Lead (optional)
+          </label>
+          <select
             id="run-lead"
             value={leadId}
-            disabled={run.isPending}
-            placeholder="UUID from your lead record"
-            pattern="[0-9a-fA-F-]{36}"
-            onChange={(e) => {
-              setLeadId(e.target.value);
+            disabled={run.isPending || leads.isPending}
+            onChange={(event) => {
+              setLeadId(event.target.value);
               setKey(crypto.randomUUID());
             }}
-          />
+          >
+            <option value="">Run without a lead</option>
+            {leadId &&
+              !leads.data?.items.some((lead) => lead.id === leadId) && (
+                <option value={leadId}>
+                  Selected lead · {leadId.slice(0, 8)}
+                </option>
+              )}
+            {leads.data?.items.map((lead) => (
+              <option key={lead.id} value={lead.id}>
+                {lead.name} · {lead.email}
+              </option>
+            ))}
+          </select>
+          {leads.isPending && (
+            <p className="mt-2 text-xs text-slate-500">Loading leads…</p>
+          )}
+          {leads.error && (
+            <p role="alert" className="notice mt-2">
+              {leads.error.message}
+            </p>
+          )}
           <p className="mt-2 text-xs text-slate-500">
             Lead actions require a lead. A basic Record result workflow can run
             without one.

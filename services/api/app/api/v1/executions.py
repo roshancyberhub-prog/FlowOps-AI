@@ -1,12 +1,19 @@
 from typing import Literal
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Header, Query, Request, Response
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, Response
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.db.base import now
 from app.db.session import get_session
-from app.models import ApprovalRequest, ExecutionStep, Membership, WorkflowExecution
+from app.models import (
+    ApprovalRequest,
+    ExecutionStep,
+    Membership,
+    WorkerHeartbeat,
+    WorkflowExecution,
+)
 from app.schemas.executions import (
     ApprovalDecision,
     ApprovalRead,
@@ -188,3 +195,36 @@ async def decide(
         data,
         request.state.request_id,
     )
+
+
+@router.get("/approvals/{approval_id}", response_model=ApprovalRead)
+async def approval_detail(
+    approval_id: UUID,
+    member: Membership = Depends(membership),
+    session: AsyncSession = Depends(get_session),
+) -> ApprovalRequest:
+    result = await session.scalar(
+        select(ApprovalRequest).where(
+            ApprovalRequest.id == approval_id,
+            ApprovalRequest.organization_id == member.organization_id,
+        )
+    )
+    if result is None:
+        raise HTTPException(404, "Approval not found.")
+    return result
+
+
+@router.get("/execution-health")
+async def execution_health(
+    member: Membership = Depends(membership),
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    last_seen = await session.scalar(
+        select(WorkerHeartbeat.last_seen).where(WorkerHeartbeat.worker_name == "dispatcher")
+    )
+    return {
+        "status": "operational"
+        if last_seen and (now() - last_seen).total_seconds() < 30
+        else "unavailable",
+        "last_dispatch_at": last_seen,
+    }

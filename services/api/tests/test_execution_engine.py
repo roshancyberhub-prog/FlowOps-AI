@@ -253,3 +253,54 @@ async def test_broker_failure_retains_outbox_for_later_publication(monkeypatch):
                 select(OutboxEntry).where(OutboxEntry.execution_id == run_id)
             )
             assert outbox.published_at is not None
+
+
+async def test_lead_created_dispatches_same_tenant_published_workflow_once():
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        headers, _ = await prepare(client, ["trigger.lead_created", "action.record_result"])
+        lead = await client.post(
+            "/api/v1/leads",
+            headers=headers,
+            json={"name": "Fictional Buyer", "email": "fictional-buyer@example.com"},
+        )
+        assert lead.status_code == 201, lead.text
+        runs = (await client.get("/api/v1/executions", headers=headers)).json()["items"]
+        automatic = [run for run in runs if run["trigger_type"] == "lead_created"]
+        assert len(automatic) == 1
+        assert automatic[0]["mode"] == "live"
+        assert automatic[0]["context"]["lead_id"] == lead.json()["id"]
+        assert automatic[0]["correlation_id"] == lead.headers["X-Request-ID"]
+        await client.patch(
+            "/api/v1/leads/" + lead.json()["id"],
+            headers=headers,
+            json={"company": "Changed company"},
+        )
+        assert (await client.get("/api/v1/executions", headers=headers)).json()["total"] == 2
+
+
+async def test_scheduler_coalesces_missed_intervals_and_honors_pause():
+    from app.execution.triggers import schedule_due
+    from app.models import Workflow
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        headers, run = await prepare(
+            client, ["trigger.scheduled", "action.record_result"], {0: {"interval_minutes": 1}}
+        )
+        async with session_factory() as session:
+            workflow = await session.get(Workflow, UUID(run["workflow_id"]))
+            workflow.scheduled_next_run_at = now() - timedelta(hours=1)
+            await session.commit()
+        await schedule_due(session_factory)
+        await schedule_due(session_factory)
+        runs = (await client.get("/api/v1/executions", headers=headers)).json()["items"]
+        scheduled = [r for r in runs if r["trigger_type"] == "scheduled"]
+        assert len(scheduled) == 1
+        assert scheduled[0]["mode"] == "live"
+        async with session_factory() as session:
+            workflow = await session.get(Workflow, UUID(run["workflow_id"]))
+            assert workflow.scheduled_next_run_at > now()
+            workflow.status = "paused"
+            workflow.scheduled_next_run_at = now() - timedelta(minutes=1)
+            await session.commit()
+        await schedule_due(session_factory)
+        assert (await client.get("/api/v1/executions", headers=headers)).json()["total"] == 2

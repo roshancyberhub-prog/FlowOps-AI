@@ -254,7 +254,7 @@ export function Workspace({ children }: { children: React.ReactNode }) {
               </span>
             </span>
             <span className="rounded-full border border-teal-200 bg-teal-50 px-3 py-1 text-[11px] font-medium text-teal-800">
-              Foundation release
+              Development preview
             </span>
           </header>
           {logout.error && (

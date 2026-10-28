@@ -5,6 +5,7 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.execution.triggers import lead_created
 from app.models import AuditLog, Lead, Membership
 from app.schemas.leads import LeadCreate, LeadPage, LeadPatch, LeadRead
 
@@ -90,6 +91,8 @@ async def save_lead(
     try:
         await session.flush()
         audit(session, member, "lead.updated" if lead_id else "lead.created", lead.id, request_id)
+        if lead_id is None:
+            await lead_created(session, lead, request_id)
         await session.commit()
     except IntegrityError as exc:
         await session.rollback()

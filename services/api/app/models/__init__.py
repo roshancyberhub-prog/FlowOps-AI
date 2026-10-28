@@ -93,6 +93,9 @@ class Workflow(Base):
     name: Mapped[str] = mapped_column(String(150))
     description: Mapped[str] = mapped_column(String(1000), default="")
     status: Mapped[str] = mapped_column(String(20), default="draft", index=True)
+    scheduled_next_run_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), index=True
+    )
     draft_graph: Mapped[dict] = mapped_column(JSONB)
     current_version_id: Mapped[UUID | None] = mapped_column(
         ForeignKey("workflow_versions.id", use_alter=True, name="fk_workflow_current_version")

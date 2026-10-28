@@ -4,6 +4,7 @@ from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.execution.triggers import scheduled_time
 from app.models import Membership, Workflow, WorkflowVersion
 from app.schemas.workflows import WorkflowCreate, WorkflowPatch
 from app.services.leads import audit
@@ -112,6 +113,7 @@ async def publish_workflow(
     workflow.current_version_id = version.id
     workflow.version_number = version.version_number
     workflow.status = "active"
+    workflow.scheduled_next_run_at = scheduled_time(graph)
     workflow.revision += 1
     audit(session, member, "workflow.published", workflow.id, request_id)
     await session.commit()
@@ -135,6 +137,12 @@ async def transition(
     }
     if workflow.status not in allowed[target]:
         raise HTTPException(409, f"Cannot change this workflow from {workflow.status} to {target}.")
+    if target == "active" and workflow.current_version_id:
+        version = await session.get(WorkflowVersion, workflow.current_version_id)
+        if version:
+            workflow.scheduled_next_run_at = scheduled_time(
+                Graph.model_validate(version.graph_definition)
+            )
     workflow.status = target
     workflow.revision += 1
     audit(session, member, f"workflow.{target}", workflow.id, request_id)

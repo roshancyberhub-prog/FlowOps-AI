@@ -12,6 +12,7 @@ from sqlalchemy.pool import NullPool
 from app.core.config import get_settings
 from app.db.base import now
 from app.execution.engine import finish, process_execution
+from app.execution.triggers import schedule_due
 from app.models import (
     ApprovalRequest,
     ExecutionStep,
@@ -89,6 +90,7 @@ async def expire_approvals(factory: async_sessionmaker) -> None:
 
 async def dispatch_pending() -> None:
     factory = worker_sessions()
+    await schedule_due(factory)
     await expire_approvals(factory)
     async with factory() as session:
         await session.execute(

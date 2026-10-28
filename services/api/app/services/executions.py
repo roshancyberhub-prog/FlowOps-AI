@@ -1,5 +1,3 @@
-import hashlib
-import json
 from uuid import UUID
 
 from fastapi import HTTPException
@@ -8,6 +6,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.execution.dispatch import enqueue
+from app.execution.hashing import payload_hash as payload_hash
 from app.models import Membership, WorkflowExecution, WorkflowVersion
 from app.schemas.executions import RunRequest
 from app.schemas.leads import LeadRead
@@ -15,12 +14,6 @@ from app.services.leads import audit, get_lead
 from app.services.workflows import get_workflow
 from app.workflows.graph import validate_graph
 from app.workflows.schema import Graph
-
-
-def payload_hash(value: dict) -> str:
-    return hashlib.sha256(
-        json.dumps(value, sort_keys=True, separators=(",", ":"), allow_nan=False).encode()
-    ).hexdigest()
 
 
 async def get_execution(
