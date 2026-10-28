@@ -1,0 +1,5 @@
+name,email,company,job_title,industry,company_size,website,country
+Fictional Buyer One,buyer-one@example.com,Example Company,Founder,Software,11-50,https://example.com,India
+Fictional Buyer Two,buyer-two@example.com,Example Tools,Director,Technology,51-200,https://example.org,India
+Invalid Email,not-an-email,Example Company,Analyst,Software,11-50,,India
+Duplicate Buyer,BUYER-ONE@example.com,Example Company,Founder,Software,11-50,https://example.com,India

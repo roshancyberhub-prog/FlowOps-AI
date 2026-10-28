@@ -23,6 +23,7 @@ from app.models import (
     WorkerHeartbeat,
     WorkflowExecution,
 )
+from app.services.imports import expire_import_sources
 
 configure_logging()
 settings = get_settings()
@@ -94,6 +95,7 @@ async def expire_approvals(factory: async_sessionmaker) -> None:
 
 async def dispatch_pending() -> None:
     factory = worker_sessions()
+    await expire_import_sources(factory)
     await schedule_due(factory)
     await expire_approvals(factory)
     async with factory() as session:

@@ -138,6 +138,18 @@ async def process_import(factory: async_sessionmaker[AsyncSession], job_id: UUID
             await process_batch(factory, job_id)
     except Exception as exc:
         failure = classify_error(exc, "database")
+        if failure.code == "NODE_ERROR":
+            failure = FailureInfo(
+                "IMPORT_PROCESSING_ERROR",
+                "The import could not complete. Review the file and processing report.",
+                False,
+            )
+        elif failure.code == "NODE_TIMEOUT":
+            failure = FailureInfo(
+                "IMPORT_BATCH_TIMEOUT",
+                "The batch exceeded its time limit; its changes were rolled back.",
+                True,
+            )
         if isinstance(exc, DBAPIError) and (
             exc.connection_invalidated
             or getattr(exc.orig, "sqlstate", None) in {"40001", "40P01", "08006", "53300"}

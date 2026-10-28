@@ -1,11 +1,11 @@
 import hashlib
-from datetime import datetime
+from datetime import datetime, timedelta
 from uuid import UUID
 
 from fastapi import HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.db.base import now
 from app.execution.hashing import payload_hash
@@ -99,3 +99,25 @@ async def accept_import(
         await session.rollback()
         raise HTTPException(409, "Conflicting import request.") from exc
     return job, True
+
+
+async def expire_import_sources(factory: async_sessionmaker[AsyncSession]) -> None:
+    async with factory() as session:
+        jobs = await session.scalars(
+            select(ImportJob)
+            .where(
+                ImportJob.status.in_(["queued", "running", "retrying"]),
+                ImportJob.created_at < now() - timedelta(days=7),
+            )
+            .with_for_update(skip_locked=True)
+            .limit(100)
+        )
+        for job in jobs:
+            job.status = "failed"
+            job.source_data = None
+            job.completed_at = now()
+            job.error_code = "IMPORT_EXPIRED"
+            job.error_summary = (
+                "This upload expired after seven days. Upload the file again to continue."
+            )
+        await session.commit()

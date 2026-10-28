@@ -168,3 +168,23 @@ async def test_failed_batch_rolls_back_leads_and_progress_before_retry(monkeypat
         await import_worker.process_import(session_factory, job_id)
         done = (await client.get("/api/v1/leads/imports/" + job["id"], headers=headers)).json()
         assert done["status"] == "succeeded" and done["inserted_rows"] == 2
+
+
+async def test_abandoned_upload_expires_and_removes_raw_source():
+    from app.services.imports import expire_import_sources
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        headers = await setup(client)
+        job = (await upload(client, headers, b"name,email\nOne,one@example.com\n")).json()
+        job_id = UUID(job["id"])
+        async with session_factory() as session:
+            stored = await session.get(ImportJob, job_id)
+            stored.created_at = now() - timedelta(days=8)
+            await session.commit()
+        await expire_import_sources(session_factory)
+        await import_worker.process_import(session_factory, job_id)
+        result = (await client.get("/api/v1/leads/imports/" + job["id"], headers=headers)).json()
+        assert result["status"] == "failed" and result["error_code"] == "IMPORT_EXPIRED"
+        async with session_factory() as session:
+            assert (await session.get(ImportJob, job_id)).source_data is None
+        assert (await client.get("/api/v1/leads", headers=headers)).json()["total"] == 0
