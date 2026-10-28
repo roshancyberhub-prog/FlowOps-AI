@@ -109,6 +109,9 @@ function ApprovalCard({ approval }: { approval: Approval }) {
       client.invalidateQueries({
         queryKey: ["execution", organization.id, approval.execution_id],
       });
+      client.invalidateQueries({ queryKey: ["draft", organization.id] });
+      client.invalidateQueries({ queryKey: ["lead-drafts", organization.id] });
+      client.invalidateQueries({ queryKey: ["executions", organization.id] });
     },
   });
   const allowed = ["owner", "admin"].includes(organization.role);

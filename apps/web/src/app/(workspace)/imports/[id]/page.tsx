@@ -37,10 +37,11 @@ export default function ImportDetail() {
   });
   const jobStatus = job.data?.status;
   useEffect(() => {
-    if (jobStatus && importEnded(jobStatus))
-      client.invalidateQueries({
-        queryKey: ["import-rows", organization.id, id],
-      });
+    if (jobStatus && importEnded(jobStatus)) {
+      client.invalidateQueries({ queryKey: ["import-rows", organization.id, id] });
+      client.invalidateQueries({ queryKey: ["imports", organization.id] });
+      client.invalidateQueries({ queryKey: ["leads", organization.id] });
+    }
   }, [jobStatus, client, organization.id, id]);
   return (
     <>

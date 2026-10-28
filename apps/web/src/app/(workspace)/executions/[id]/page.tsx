@@ -43,10 +43,13 @@ export default function ExecutionDetail() {
   });
   const runStatus = run.data?.status;
   useEffect(() => {
-    if (runStatus && ended(runStatus))
-      client.invalidateQueries({
-        queryKey: ["execution-steps", organization.id, id],
-      });
+    if (runStatus && ended(runStatus)) {
+      client.invalidateQueries({ queryKey: ["execution-steps", organization.id, id] });
+      client.invalidateQueries({ queryKey: ["leads", organization.id] });
+      client.invalidateQueries({ queryKey: ["lead", organization.id] });
+      client.invalidateQueries({ queryKey: ["lead-drafts", organization.id] });
+      client.invalidateQueries({ queryKey: ["draft", organization.id] });
+    }
   }, [runStatus, client, organization.id, id]);
   const control = useMutation({
     mutationFn: (action: string) =>
