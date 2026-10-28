@@ -15,3 +15,6 @@ Workflow acceptance passed run 40673713422: 36 backend tests and three browser j
 Execution acceptance passed [run 40736331765](https://github.com/roshancyberhub-prog/FlowOps-AI/actions/runs/40736331765): **54 backend tests and all four browser journeys**. The Docker stack includes separate API, Celery worker and Beat scheduler processes. Browser assertions verify overall run completion, persisted steps after reload, approval pause/resume and a 390px document width. Reviewed screenshots are committed under `docs/screenshots/`.
 
 Backend execution tests inject failures at the handler/broker boundary to verify retries without contacting providers. They check three-attempt exhaustion, bounded manual retry acceptance, concurrent duplicate messages, uncertain external-intent recovery, pending approval expiry, cancellation after interruption, transactional outbox retention, automatic lead creation and coalesced scheduled intervals. A durable-delay test verifies that duplicate delivery cannot skip a future due time.
+
+
+CSV/scoring checkpoint: run 40741008963 passed 72 backend tests and five browser journeys, including actual background CSV import, record filtering/reload/mobile width, scored lead reasons and profile-version creation.

@@ -3,6 +3,7 @@ import { expect, test } from "@playwright/test";
 test("register, persist leads, edit, archive, restore and isolate workspaces", async ({
   page,
 }, testInfo) => {
+  await page.setViewportSize({ width: 1440, height: 1100 });
   const suffix = `${Date.now()}-${testInfo.workerIndex}`;
   const workspace = `Demo operations ${suffix}`;
   const email = `buyer-${suffix}@example.com`;
@@ -57,6 +58,14 @@ test("register, persist leads, edit, archive, restore and isolate workspaces", a
   await expect(page.getByRole("region", { name: "Lead score" })).toContainText(
     "Profile version 1",
   );
+  await page
+    .getByRole("region", { name: "Lead score" })
+    .scrollIntoViewIfNeeded();
+  await expect(
+    page.getByText("All configured required fields are present.", {
+      exact: true,
+    }),
+  ).toBeVisible();
   await page.screenshot({
     path: testInfo.outputPath("lead-score-reasons.png"),
     fullPage: true,

@@ -49,6 +49,11 @@ Graph schema version 1 permits one trigger, one edge per output and branches wit
 
 Run requests require `Idempotency-Key` (1–200 alphanumeric/colon/underscore/hyphen characters). JSON accepts optional `workflow_version_id` and either `lead_id` or `sample_lead`. The version must belong to this workflow and a stored lead must belong to this organization. New requests return 202; identical replay returns 200; conflicting replay returns 409. Viewers cannot request, retry or cancel runs.
 
-Test mode records execution and approval history while simulating lead status changes and internal notifications. Live mode applies those database changes. AI, scoring and send nodes currently fail explicitly as unconfigured. Manual execution can exercise any published trigger definition; automatic lead-created and interval triggers run the active published version in live mode. Inbound webhook dispatch is not implemented yet.
+Test mode records execution and approval history while simulating lead status changes and internal notifications. Live mode applies those database changes. AI and send nodes currently fail explicitly as unconfigured. Score nodes use the immutable profile pinned at publication. Manual execution can exercise any published trigger definition; automatic lead-created and interval triggers run the active published version in live mode. Inbound webhook dispatch is not implemented yet.
 
 Generic checkpoints use `kind: continue`; email checkpoints default to `kind: email` and require a preceding draft. The decision body contains `revision`, `payload_hash` and an optional comment up to 1000 characters. Stale, completed or expired reviews return 409. Unknown external outcomes cannot be manually or automatically retried.
+
+
+## Lead operations
+
+See [scoring routes and profile semantics](SCORING.md) and [CSV upload, history and report routes](IMPORTS.md). Scoring is deterministic; CSV processing runs through durable Celery batches. AI generation and email delivery remain unconfigured.

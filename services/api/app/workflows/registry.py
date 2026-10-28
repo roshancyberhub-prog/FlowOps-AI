@@ -34,7 +34,7 @@ class Score(StrictModel):
 
 class Draft(StrictModel):
     value_proposition: str = Field(default="Help your team streamline operations.", max_length=1000)
-    template: str = Field(default="initial_follow_up", max_length=100)
+    template: Literal["initial_follow_up"] = "initial_follow_up"
 
 
 class Condition(StrictModel):

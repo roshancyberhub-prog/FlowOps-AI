@@ -4,7 +4,7 @@ Workflow automation and AI-assisted lead operations built with Next.js, FastAPI,
 
 Development follows [CHATGPT.md](CHATGPT.md). See [requirements](docs/REQUIREMENTS.md) and the [implementation checklist](IMPLEMENTATION_STATUS.md) for scope and verified progress.
 
-Implemented features include revocable session authentication, workspaces and membership roles, persistent lead management, duplicate protection, audit history, and a React Flow workflow editor with validation, draft saving and immutable published versions. Celery background runs now persist step history, bounded retries, cancellation and human checkpoints. AI processing, CSV imports and integrations are upcoming milestones. No live deployment is available yet.
+Implemented features include revocable session authentication, workspaces and membership roles, persistent lead management, duplicate protection, audit history, and a React Flow workflow editor with validation, draft saving and immutable published versions. Celery background runs now persist step history, bounded retries, cancellation and human checkpoints. Bounded CSV imports provide saved row reports, and configurable immutable ICP profiles explain lead scores. AI processing and integrations are upcoming milestones. No live deployment is available yet.
 
 ![Verified lead management interface](docs/screenshots/leads-desktop.png)
 
@@ -92,7 +92,7 @@ Do not run tests against production data. Browser tests create fictional account
 
 ## Current limits
 
-There is no password reset or verification email flow yet. Team access currently requires an existing account. Lead deletion archives the record, and changing its status restores it. Normalized email uniqueness applies within each workspace, including archived leads. Scores are not yet calculated.
+There is no password reset or verification email flow yet. Team access currently requires an existing account. Lead deletion archives the record, and changing its status restores it. Normalized email uniqueness applies within each workspace, including archived leads. Lead details show rule-based scores and their reasons; see [scoring](docs/SCORING.md) and [imports](docs/IMPORTS.md).
 
 HTTP bodies are limited to 1 MiB. Redis backs fixed-window limits of 10 authentication requests per 15 minutes and 300 other API requests per minute per observed client address. A reverse proxy can group clients under one address; configure a trusted ingress and a deliberate client-address policy before a public launch. Do not trust arbitrary forwarded-IP headers. Login, passwords and session tokens are never stored in browser JavaScript storage.
 

@@ -30,10 +30,18 @@ The execution acceptance run verifies an actual Celery worker completes a backgr
 - Execution listing/detail/timeline, run dialog with lead search, approval review and authenticated dispatch health.
 - Lead-created triggers share the lead transaction; scheduled triggers persist their next due time and coalesce missed intervals.
 
-Scoring, AI generation and email nodes currently fail explicitly as unconfigured. Inbound/outbound webhooks and CSV imports are not implemented. No public deployment or provider delivery is verified.
+AI generation and email nodes currently fail explicitly as unconfigured. Inbound/outbound webhooks are not implemented. No public deployment or provider delivery is verified.
+
+## Milestone 4 checkpoint: CSV and scoring
+
+Run 40741008963 passed 72 backend tests, PostgreSQL migrations/schema checks and all five Docker-backed browser journeys. The scoring journey calculates a lead score with six reasons and saves a new immutable profile version. The CSV journey uploads a mapped file, waits for the separate worker, inspects inserted/invalid/duplicate counts, filters and reloads the report, and verifies mobile geometry and persisted leads. Backend tests cover concurrent import messages, batch rollback/retry and raw-upload expiry.
+
+The baseline ICP is configurable and versioned. Workflow publication pins a profile UUID; editing score inputs clears the current result. Imports are bounded to 512 KiB and 2000 records and run in transactional batches of 100. Existing and in-file duplicates are skipped, mapped row reports persist, and raw sources are cleared on completion/failure or after seven days. See SCORING.md and IMPORTS.md.
+
+AI qualification/drafts, approval editing and protected mock email delivery remain the rest of Milestone 4. The source instructions explicitly authorize a safe mock if credentials are unavailable; no OpenAI key was found. Live AI calls, real email and production deployment are not configured or claimed.
 
 ## Development and publication
 
 The repository was initially empty. All supplied instructions were read before implementation. Python 3.12, Node 24, uv and npm are available. This local execution environment cannot start PostgreSQL under a non-root user, and the local Chromium download failed; actual database/browser verification comes from GitHub Actions. Local checks cover Python unit/API tests with Redis, Ruff, Mypy, TypeScript, ESLint and the production frontend build.
 
-Feature work is saved on `feature/workflows` and `feature/execution`. Automatic approval review rejected advancing the default branch because the workflow work was scoped to a separate branch. `main` retains the verified foundation; merging and a public deployment have not been performed. Continue feature-branch work and request explicit merge approval only after preparing the complete reviewable result.
+Feature work is saved on `feature/workflows`, `feature/execution` and `feature/lead-operations`. Automatic approval review rejected advancing the default branch because the workflow work was scoped to a separate branch. `main` retains the verified foundation; merging and a public deployment have not been performed. Continue feature-branch work and request explicit merge approval only after preparing the complete reviewable result.
