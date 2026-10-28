@@ -18,3 +18,6 @@ Backend execution tests inject failures at the handler/broker boundary to verify
 
 
 CSV/scoring checkpoint: run 40741008963 passed 72 backend tests and five browser journeys, including actual background CSV import, record filtering/reload/mobile width, scored lead reasons and profile-version creation.
+
+
+Milestone 4 acceptance: [run 40747693463](https://github.com/roshancyberhub-prog/FlowOps-AI/actions/runs/40747693463) passed **82 backend tests and all five browser journeys**. The expanded import journey publishes outreach, processes fitting/invalid/duplicate records through separate workers, edits a draft, verifies stale review rejection, approves one current revision, rejects the other and checks all nine successful steps plus exactly one mock receipt. No external email is sent. Backend additions cover current approver authorization and lead facts at send time. Screenshots were visually reviewed for desktop/mobile layout, complete score reasons, edited draft content and simulated receipts.

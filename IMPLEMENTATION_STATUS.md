@@ -6,7 +6,7 @@ Status reflects verified behavior only. Follow CHATGPT.md in milestone order.
 - [x] Milestone 1: FastAPI, PostgreSQL migrations, maintained authentication, organizations, lead CRUD, Next.js, CI, Docker; verify persistence and tenant isolation.
 - [x] Milestone 2: validated graph registry, drafts, immutable versions, templates, React Flow editor.
 - [x] Milestone 3: Celery/Redis, durable dispatch, persisted steps, retries, cancellation, approval checkpoints.
-- [ ] Milestone 4: bounded CSV imports, reproducible ICP scoring, structured AI adapters, approval inbox, explicit mock email.
+- [x] Milestone 4: bounded CSV imports, reproducible ICP scoring, structured AI adapters, approval inbox, explicit mock email.
 - [ ] Milestone 5: real integration, signed and deduplicated inbound webhooks, outbound attempts and retries.
 - [ ] Milestone 6: end-to-end verification, hardening, deployment, monitoring, recovery documentation, recorded demo.
 
@@ -17,6 +17,7 @@ Status reflects verified behavior only. Follow CHATGPT.md in milestone order.
 | Foundation | Run 40664524685: PostgreSQL/Redis, migrations and two browser journeys |
 | Workflow design | Run 40673713422: 36 backend tests and three browser journeys |
 | Execution engine | Run 40736331765: 54 backend tests, migrations, Docker worker/scheduler and all four browser journeys |
+| Lead operations with explicit mock providers | Run 40747693463: 82 backend tests and all five browser journeys, including the complete import-to-reviewed-mock-receipt flow |
 
 The execution acceptance run verifies an actual Celery worker completes a background run, persists its steps across reload, pauses at a generic human checkpoint and fully completes after authorized approval. The strengthened browser assertion checks the overall run plus every completed step. Screenshot review confirms the completed desktop/mobile states. PostgreSQL tests cover concurrent duplicate delivery, bounded retries, stale external intents, broker recovery, checkpoint expiry, cancellation after interruption, durable delays, lead-created triggers, interval coalescing and pause behavior. All are green.
 
@@ -38,7 +39,7 @@ Run 40741008963 passed 72 backend tests, PostgreSQL migrations/schema checks and
 
 The baseline ICP is configurable and versioned. Workflow publication pins a profile UUID; editing score inputs clears the current result. Imports are bounded to 512 KiB and 2000 records and run in transactional batches of 100. Existing and in-file duplicates are skipped, mapped row reports persist, and raw sources are cleared on completion/failure or after seven days. See SCORING.md and IMPORTS.md.
 
-Structured qualification/drafts, approval editing and protected mock email delivery passed backend checkpoint 40744449923 (79 tests). The full outreach interface and expanded CSV-to-reviewed-delivery browser journey are awaiting CI acceptance. The source instructions explicitly authorize a safe mock if credentials are unavailable; no OpenAI key was found. Live AI calls, real email and production deployment are not configured or claimed.
+Milestone 4 acceptance passed run 40747693463: 82 backend tests and all five browser journeys. The full flow publishes an outreach template, imports two fitting leads plus invalid/duplicate records, scores the leads, pauses for email review, edits a draft, rejects the stale review, approves the current revision, records exactly one simulated receipt and rejects the other run without delivery. Backend tests also verify revoked approvers, changed lead facts, strict output schemas and uncertain external failures. Reviewed desktop/mobile screenshots are in the corresponding CI artifacts. A subsequent view-cache refresh patch is undergoing its own CI run. The source instructions explicitly authorize a safe mock if credentials are unavailable; no OpenAI key was found. Live AI calls, real email and production deployment are not configured or claimed.
 
 ## Development and publication
 
