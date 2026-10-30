@@ -246,7 +246,7 @@ test("import, score, review and simulate protected outreach through separate wor
   await connection
     .getByRole("button", { name: "Test connection", exact: true })
     .click();
-  await expect(connection).toContainText("Connected");
+  await expect(connection).toContainText("Connection: connected");
   await connection
     .getByRole("button", { name: "View events & deliveries", exact: true })
     .click();
