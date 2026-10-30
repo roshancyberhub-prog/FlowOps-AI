@@ -19,7 +19,7 @@ Desktop and mobile screenshots come from the real Docker-backed browser journey 
 Install Docker with Compose v2, then run from the repository root:
 
 ```bash
-cp .env.example .env
+python3 scripts/setup-env.py
 # Replace POSTGRES_PASSWORD and the matching password in DATABASE_URL.
 docker compose up --build --wait
 ```
@@ -97,3 +97,5 @@ There is no password reset or verification email flow yet. Team access currently
 HTTP bodies are limited to 1 MiB. Redis backs fixed-window limits of 10 authentication requests per 15 minutes and 300 other API requests per minute per observed client address. A reverse proxy can group clients under one address; configure a trusted ingress and a deliberate client-address policy before a public launch. Do not trust arbitrary forwarded-IP headers. Login, passwords and session tokens are never stored in browser JavaScript storage.
 
 See [implementation status](IMPLEMENTATION_STATUS.md) for verified and unverified work.
+
+Integration setup, signature protocol, receiver idempotency contract and delivery recovery: [docs/INTEGRATIONS.md](docs/INTEGRATIONS.md).

@@ -1,4 +1,8 @@
+import { createHmac } from "node:crypto";
+import { readFileSync } from "node:fs";
 import { expect, test } from "@playwright/test";
+
+test.use({ video: "on" });
 
 test("import, score, review and simulate protected outreach through separate workers", async ({
   page,
@@ -227,5 +231,78 @@ test("import, score, review and simulate protected outreach through separate wor
   await expect(
     page.getByRole("row").filter({ hasText: "buyer-one@example.com" }),
   ).toContainText("80/100");
+  await page.setViewportSize({ width: 1440, height: 1100 });
+  await page.getByRole("link", { name: "Integrations", exact: true }).click();
+  await page.getByLabel("Name", { exact: true }).fill("Inbound verification");
+  await page.getByLabel("Provider", { exact: true }).selectOption("webhook");
+  await page
+    .getByRole("button", { name: "Add integration", exact: true })
+    .click();
+  const connection = page.getByRole("region", {
+    name: "Inbound verification",
+    exact: true,
+  });
+  await expect(connection).toBeVisible();
+  await connection
+    .getByRole("button", { name: "Test connection", exact: true })
+    .click();
+  await expect(connection).toContainText("Connected");
+  await connection
+    .getByRole("button", { name: "View events & deliveries", exact: true })
+    .click();
+  const endpoint = (await connection.locator("code").innerText()).trim();
+  const identifier = endpoint.split("/").at(-1)!;
+  const key = readFileSync("../../.env", "utf8")
+    .split("\n")
+    .find((line) => line.startsWith("WEBHOOK_SIGNING_KEY="))
+    ?.slice("WEBHOOK_SIGNING_KEY=".length);
+  expect(key).toBeTruthy();
+  const body = Buffer.from(
+    JSON.stringify({
+      event_id: "browser:lead:001",
+      lead: { name: "Existing buyer", email: "buyer-one@example.com" },
+    }),
+  );
+  const timestamp = Math.floor(Date.now() / 1000);
+  const derived = createHmac("sha256", key!).update(identifier).digest();
+  const signed =
+    "sha256=" +
+    createHmac("sha256", derived)
+      .update(Buffer.concat([Buffer.from(`${timestamp}.`), body]))
+      .digest("hex");
+  const signedHeaders = {
+    "Content-Type": "application/json",
+    "X-FlowOps-Timestamp": String(timestamp),
+    "X-FlowOps-Signature": signed,
+  };
+  const incoming = await page.request.post(endpoint, {
+    headers: signedHeaders,
+    data: body,
+  });
+  expect(incoming.status()).toBe(200);
+  const duplicate = await page.request.post(endpoint, {
+    headers: signedHeaders,
+    data: body,
+  });
+  expect((await duplicate.json()).duplicate).toBe(true);
+  const rejected = await page.request.post(endpoint, {
+    headers: {
+      ...signedHeaders,
+      "X-FlowOps-Signature": "sha256=" + "0".repeat(64),
+    },
+    data: body,
+  });
+  expect(rejected.status()).toBe(401);
+  await expect(
+    connection.getByText("browser:lead:001", { exact: true }),
+  ).toBeVisible({ timeout: 10000 });
+  await page.screenshot({
+    path: testInfo.outputPath("signed-webhook-history.png"),
+    fullPage: true,
+  });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect
+    .poll(() => page.evaluate(() => document.documentElement.scrollWidth))
+    .toBeLessThanOrEqual(390);
   expect(errors).toEqual([]);
 });
