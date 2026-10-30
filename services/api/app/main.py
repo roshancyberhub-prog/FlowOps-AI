@@ -125,7 +125,7 @@ async def request_context(
         extra={
             "route": getattr(request.scope.get("route"), "path", "_unmatched"),
             "method": request.method,
-            "path": request.url.path,
+            "path": getattr(request.scope.get("route"), "path", "_unmatched"),
             "status": response.status_code,
             "duration_ms": round((time.monotonic() - started) * 1000, 2),
             "request_id": request.state.request_id,

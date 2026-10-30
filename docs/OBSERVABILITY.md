@@ -4,7 +4,7 @@ The operating questions are: are requests failing or slowing down; is background
 
 | Question | Implemented signal | First response |
 |---|---|---|
-| API failures/latency | JSON `request_completed`: normalized route, method, status, duration_ms, request_id | Compare 5xx counts and p95 with the last healthy release; inspect a request ID |
+| API failures/latency | JSON `request_completed`: normalized route (including unknown paths), method, status, duration_ms, request_id | Compare 5xx counts and p95 with the last healthy release; inspect a request ID |
 | API dependencies available | `/api/v1/health/ready` checks PostgreSQL + Redis | Restore the unavailable dependency; do not bypass fail-closed rate limits |
 | Worker/scheduler functioning | Authenticated `/execution-health`: dispatch heartbeat, oldest due age, status counts, pending imports and webhook outcomes | Inspect worker/scheduler logs; keep one Beat process; preserve outbox rows |
 | A particular workflow failed | Persistent execution/step history and `step_completed` JSON with request/execution/node IDs, attempt, duration and safe error code | Inspect the immutable version and failed attempt; retry only if eligible |

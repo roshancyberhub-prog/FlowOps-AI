@@ -18,7 +18,7 @@ Desktop and mobile screenshots come from the real Docker-backed browser journey 
 
 ## Local setup
 
-Install Docker with Compose v2, then run from the repository root:
+Install Docker with Compose v2 and Python 3, then run from the repository root:
 
 ```bash
 python3 scripts/setup-env.py

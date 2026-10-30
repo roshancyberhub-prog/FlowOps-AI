@@ -45,8 +45,21 @@ Milestone 4 acceptance passed run 40747693463: 82 backend tests and all five bro
 
 The repository was initially empty. All supplied instructions were read before implementation. Python 3.12, Node 24, uv and npm are available. This local execution environment cannot start PostgreSQL under a non-root user, and the local Chromium download failed; actual database/browser verification comes from GitHub Actions. Local checks cover Python unit/API tests with Redis, Ruff, Mypy, TypeScript, ESLint and the production frontend build.
 
-Feature work is saved on `feature/workflows`, `feature/execution` and `feature/lead-operations`. Automatic approval review rejected advancing the default branch because the workflow work was scoped to a separate branch. `main` retains the verified foundation; merging and a public deployment have not been performed. Continue feature-branch work and request explicit merge approval only after preparing the complete reviewable result.
+Feature work is saved on `feature/workflows`, `feature/execution`, `feature/lead-operations`, `feature/integrations` and `feature/release-readiness`. The complete proposal is PR #1. Automatic approval review rejected advancing the default branch because the workflow work was scoped to a separate branch. `main` retains the verified foundation; merging and a public deployment have not been performed. Continue feature-branch work and request explicit merge approval only after preparing the complete reviewable result.
 
 ## Milestone 5 acceptance
 
 [Run 41027662222](https://github.com/roshancyberhub-prog/FlowOps-AI/actions/runs/41027662222) passed 108 backend tests, the real public GitHub repository adapter check, migration/schema/reversal checks, dependency audit, and all five Docker-backed browser journeys. Signed ingress, duplicate rejection, forged signatures, mobile integration history, bounded outgoing retries and lost-worker uncertainty are verified. The import/outreach journey records a browser video. See INTEGRATIONS.md.
+
+## Milestone 6: code and release preparation
+
+- [x] API-backed seven-day analytics, workflow counts/last run, responsive chart and exact-value table.
+- [x] Private independent development/production settings, digest-pinned containers, HTTPS/trusted-proxy profile and closed production registration.
+- [x] Python/npm audits, migrations/reversal/schema checks, native lint/types/build and actual PostgreSQL/Redis/Celery/Chromium verification.
+- [x] Queue/latency signals, restricted JSON logging, monitoring export and documented retention/erasure limits.
+- [x] Isolated dump/restore drill with matching business counts and schema revision.
+- [x] Recorded fictional workflow including score reasons, approval/mock receipt, retry, viewer denial and cross-workspace access denial.
+- [ ] Explicit approval to merge the release PR into main.
+- [ ] Approved public Docker host/domain, actual deployment, host-specific smoke/performance checks and alert delivery.
+
+Run [41034252027](https://github.com/roshancyberhub-prog/FlowOps-AI/actions/runs/41034252027) passed 118 backend tests, all five browser journeys, both dependency audits, the real public GitHub adapter, pinned Docker builds, production configuration validation and the isolated restore drill. The corresponding PR run also passed. The final request-log redaction regression adds coverage for malformed paths; its final run is pending. The completed demo is committed under docs/demo/. No public deployment, live AI call or real email delivery is claimed.
