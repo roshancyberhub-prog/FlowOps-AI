@@ -476,7 +476,9 @@ test("import, score, review and simulate protected outreach through separate wor
     .getByLabel("Workspace", { exact: true })
     .selectOption({ label: "Viewer separate workspace" });
   await page.goto(`/executions/${retryRun.id}`);
-  await expect(page.getByRole("alert")).toContainText("Execution not found.");
+  await expect(
+    page.getByRole("alert").filter({ hasText: "Execution not found." }),
+  ).toBeVisible();
   await checkpoint({
     path: testInfo.outputPath("cross-workspace-denied.png"),
     fullPage: true,
