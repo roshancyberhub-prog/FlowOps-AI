@@ -268,13 +268,19 @@ async def deliveries(
         .order_by(WebhookDelivery.created_at.desc())
         .limit(50)
     )
-    result = []
-    for row in rows:
+    deliveries = list(rows)
+    attempts_by_delivery: dict[UUID, list[WebhookAttempt]] = {row.id: [] for row in deliveries}
+    if deliveries:
         attempts = await session.scalars(
             select(WebhookAttempt)
-            .where(WebhookAttempt.delivery_id == row.id)
+            .where(WebhookAttempt.delivery_id.in_(attempts_by_delivery))
             .order_by(WebhookAttempt.number)
         )
+        for attempt in attempts:
+            attempts_by_delivery[attempt.delivery_id].append(attempt)
+    result = []
+    for row in deliveries:
+        row_attempts = attempts_by_delivery[row.id]
         result.append(
             {
                 "id": row.id,
@@ -289,7 +295,7 @@ async def deliveries(
                         "error_code": x.error_code,
                         "uncertain": x.uncertain,
                     }
-                    for x in attempts
+                    for x in row_attempts
                 ],
             }
         )

@@ -220,3 +220,51 @@ async def test_outgoing_uncertainty_requires_receiver_contract(monkeypatch, dedu
         assert rows[0]["status"] == ("delivered" if deduplicates else "uncertain")
         assert len(rows[0]["attempts"]) == (2 if deduplicates else 1)
         assert len(set(attempts)) == 1
+
+
+@pytest.mark.parametrize("deduplicates", [True, False])
+async def test_lost_webhook_worker_does_not_blindly_replay_without_receiver_contract(
+    monkeypatch, deduplicates
+):
+    from app.models import WebhookAttempt
+
+    async def validate(url, allowed):
+        return httpx.URL(url), "8.8.8.8"
+
+    monkeypatch.setattr("app.services.integrations.validate_destination", validate)
+    calls = []
+
+    async def send(url, allowed, body, headers):
+        calls.append(headers["Idempotency-Key"])
+        return 204
+
+    monkeypatch.setattr(worker, "post_webhook", send)
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        headers, item = await setup(
+            client,
+            {
+                "destination": "https://receiver.example/events",
+                "receiver_deduplicates": deduplicates,
+            },
+        )
+        path = "/api/v1/integrations/" + item["id"]
+        queued = (
+            await client.post(
+                path + "/deliveries",
+                headers={**headers, "Idempotency-Key": "lost-worker-event"},
+                json={},
+            )
+        ).json()
+        identifier = UUID(queued["id"])
+        async with session_factory() as session:
+            delivery = await session.get(WebhookDelivery, identifier)
+            delivery.status, delivery.attempt_count = "running", 1
+            delivery.lease_token, delivery.lease_until = uuid4(), now() - timedelta(seconds=1)
+            session.add(WebhookAttempt(delivery_id=identifier, number=1))
+            await session.commit()
+        await worker.deliver(session_factory, identifier)
+        rows = (await client.get(path + "/deliveries", headers=headers)).json()["items"]
+        assert rows[0]["status"] == ("delivered" if deduplicates else "uncertain")
+        assert rows[0]["attempts"][0]["error_code"] == "WORKER_LOST"
+        assert rows[0]["attempts"][0]["uncertain"] is True
+        assert len(calls) == (1 if deduplicates else 0)
