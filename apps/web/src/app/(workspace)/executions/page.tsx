@@ -95,7 +95,7 @@ export default function ExecutionsPage() {
           </div>
           <div className="panel p-4">
             <p className="text-xs text-slate-500">
-              Webhooks needing investigation
+              Failed / uncertain webhooks
             </p>
             <p className="mt-2 text-xl font-semibold">
               {(health.data.webhooks_by_status.failed ?? 0) +

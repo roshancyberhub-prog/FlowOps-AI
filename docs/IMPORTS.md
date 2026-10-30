@@ -8,7 +8,7 @@ The duplicate policy is insert valid new leads and **skip** duplicates. Normaliz
 
 An accepted request saves the bounded raw source, import record and outbox intent in PostgreSQL. Celery processes batches of 100 records. Leads, audit events, automatic lead-created workflow intents, row results, progress and next dispatch commit together. A batch rollback preserves earlier committed batches and discards its own changes. Row/job locks and unique record identifiers tolerate duplicate worker messages. Lost dispatches are reconciled from PostgreSQL. Eligible temporary failures receive up to three failed attempts with backoff; permanent failures stop processing.
 
-Raw source bytes are removed on success or terminal failure. Maintenance expires abandoned uploads after seven days, removes their source and preserves any committed leads/reports. API upload files are closed after bounded reading; there are no retained local upload paths. Row reports retain mapped input values and errors as organization-owned history; production report-retention/deletion policy remains release work.
+Raw source bytes are removed on success or terminal failure. Maintenance expires abandoned uploads after seven days, removes their source and preserves any committed leads/reports. API upload files are closed after bounded reading; there are no retained local upload paths. Row reports retain mapped input values and errors as organization-owned history; retention and authorized erasure limitations are defined in [RETENTION.md](RETENTION.md).
 
 Routes under `/api/v1`, authenticated and scoped by `X-Organization-ID`:
 

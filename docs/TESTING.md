@@ -21,3 +21,11 @@ CSV/scoring checkpoint: run 40741008963 passed 72 backend tests and five browser
 
 
 Milestone 4 acceptance: [run 40747693463](https://github.com/roshancyberhub-prog/FlowOps-AI/actions/runs/40747693463) passed **82 backend tests and all five browser journeys**. The expanded import journey publishes outreach, processes fitting/invalid/duplicate records through separate workers, edits a draft, verifies stale review rejection, approves one current revision, rejects the other and checks all nine successful steps plus exactly one mock receipt. No external email is sent. Backend additions cover current approver authorization and lead facts at send time. Screenshots were visually reviewed for desktop/mobile layout, complete score reasons, edited draft content and simulated receipts.
+
+## Release readiness checkpoint
+
+[Run 41030254236](https://github.com/roshancyberhub-prog/FlowOps-AI/actions/runs/41030254236) passed 116 backend tests and all five Docker-backed browser journeys. Python runtime and npm dependency audits found no known vulnerabilities. Caddy accepted the production configuration. A real custom-format PostgreSQL dump restored into a separate database; users/leads/executions/email receipts/webhook events and Alembic revision matched.
+
+The recorded journey additionally enables the explicit non-production `DEMO_RETRY_FAILURE` fault, verifies failed then successful mock-draft attempts, registers a separate viewer, adds that user through Team, checks backend approval denial (403), cross-workspace execution denial (404), and shows read-only approval controls. The fault cannot affect production or live mode; automated gate tests cover both. Native review mutated signature verification and observed a failing security test, then restored the implementation and reran it successfully.
+
+New setup-isolation/symlink and log-export tests, independent production settings and digest pinning are undergoing the final release run. Native setup/metrics checks, Ruff, Mypy, ESLint, TypeScript and representative unit tests pass. The native vulnerability-service request timed out under the workspace proxy; the actual successful vulnerability audit evidence is from CI. No public-host smoke/performance/alert test is claimed.

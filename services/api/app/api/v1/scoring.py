@@ -26,7 +26,7 @@ async def current_profile(
 async def profiles(
     member: Membership = Depends(membership),
     session: AsyncSession = Depends(get_session),
-    page: int = Query(1, ge=1),
+    page: int = Query(1, ge=1, le=10000),
 ) -> dict:
     query = select(ScoringProfile).where(ScoringProfile.organization_id == member.organization_id)
     rows = await session.scalars(

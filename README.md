@@ -4,7 +4,9 @@ Workflow automation and AI-assisted lead operations built with Next.js, FastAPI,
 
 Development follows [CHATGPT.md](CHATGPT.md). See [requirements](docs/REQUIREMENTS.md) and the [implementation checklist](IMPLEMENTATION_STATUS.md) for scope and verified progress.
 
-Implemented features include revocable session authentication, workspaces and membership roles, persistent lead management, duplicate protection, audit history, and a React Flow workflow editor with validation, draft saving and immutable published versions. Celery background runs now persist step history, bounded retries, cancellation and human checkpoints. Bounded CSV imports provide saved row reports, and configurable immutable ICP profiles explain lead scores. A labelled mock qualification/draft/email path supports the approval demo; live providers and external integrations remain unconfigured. No live deployment is available yet.
+Implemented features include revocable session authentication, workspaces and membership roles, persistent lead management, duplicate protection, audit history, and a React Flow workflow editor with validation, draft saving and immutable published versions. Celery background runs now persist step history, bounded retries, cancellation and human checkpoints. Bounded CSV imports provide saved row reports, and configurable immutable ICP profiles explain lead scores. A labelled mock qualification/draft/email path supports the approval demo; live AI/email providers remain unconfigured. Signed webhooks, tracked outgoing attempts and a real public GitHub repository integration are implemented. The overview uses scoped database analytics and an accessible chart. No live deployment is available yet.
+
+![Verified API-backed overview](docs/screenshots/analytics-overview.png)
 
 ![Verified lead management interface](docs/screenshots/leads-desktop.png)
 
@@ -20,7 +22,6 @@ Install Docker with Compose v2, then run from the repository root:
 
 ```bash
 python3 scripts/setup-env.py
-# Replace POSTGRES_PASSWORD and the matching password in DATABASE_URL.
 docker compose up --build --wait
 ```
 
@@ -84,6 +85,8 @@ npm run typecheck
 npm run build
 npm audit --omit=dev --audit-level=high
 npx playwright install chromium
+# For the complete retry/video journey, set DEMO_RETRY_FAILURE=true in root .env,
+# then recreate api, worker and scheduler. The fault only affects non-production test runs.
 # With the Docker application running on localhost:3000:
 E2E_EXTERNAL=1 npm test
 ```
@@ -99,3 +102,9 @@ HTTP bodies are limited to 1 MiB. Redis backs fixed-window limits of 10 authenti
 See [implementation status](IMPLEMENTATION_STATUS.md) for verified and unverified work.
 
 Integration setup, signature protocol, receiver idempotency contract and delivery recovery: [docs/INTEGRATIONS.md](docs/INTEGRATIONS.md).
+
+## Release and operations
+
+The production profile, account bootstrap, HTTPS proxy policy, controlled migrations, backup/restore and rollback are documented in [DEPLOYMENT.md](docs/DEPLOYMENT.md). It runs persistent workers on an appropriate Docker host. Use a separate generated production environment; do not reuse development secrets. No public deployment has been performed.
+
+[Monitoring](docs/OBSERVABILITY.md), [retention/deletion rules](docs/RETENTION.md), [security](docs/SECURITY.md) and the [recorded demo](docs/DEMO.md) describe the implemented behavior and its limits. No paid service is required for local Docker use.

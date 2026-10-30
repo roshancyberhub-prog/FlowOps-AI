@@ -19,6 +19,9 @@ async def test_overview_uses_scoped_database_counts_and_zero_filled_utc_days():
         await account(client, f"analytics-{uuid4()}@example.com")
         org = (await client.post("/api/v1/organizations", json={"name": "Analytics"})).json()
         headers = {"X-Organization-ID": org["id"]}
+        assert (
+            await client.get("/api/v1/leads?page=1000000000000", headers=headers)
+        ).status_code == 422
         empty = (await client.get("/api/v1/analytics/overview", headers=headers)).json()
         assert empty["executions"] == empty["active_leads"] == 0
         assert empty["success_rate"] is None and len(empty["daily"]) == 7

@@ -46,8 +46,7 @@ for (method, route), values in sorted(groups.items()):
             "p95_ms": percentile(durations, 0.95),
             "p99_ms": percentile(durations, 0.99),
             "duration_histogram_cumulative": {
-                str(bound): sum(value <= bound for value in durations)
-                for bound in bounds
+                str(bound): sum(value <= bound for value in durations) for bound in bounds
             },
         }
     )

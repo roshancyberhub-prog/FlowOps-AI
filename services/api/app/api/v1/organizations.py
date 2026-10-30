@@ -1,7 +1,7 @@
 from typing import Literal
 from uuid import UUID, uuid4
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -181,11 +181,9 @@ async def update_member(
 async def audit_history(
     member: Membership = Depends(membership),
     session: AsyncSession = Depends(get_session),
-    page: int = 1,
+    page: int = Query(default=1, ge=1, le=10000),
 ) -> list[dict]:
     require_role(member, ADMIN_ROLES)
-    if page < 1:
-        raise HTTPException(422, "Page must be positive.")
     rows = await session.scalars(
         select(AuditLog)
         .where(AuditLog.organization_id == member.organization_id)

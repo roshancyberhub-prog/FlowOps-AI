@@ -52,7 +52,7 @@ async def workflow_templates(member: Membership = Depends(membership)) -> list[d
 async def list_workflows(
     member: Membership = Depends(membership),
     session: AsyncSession = Depends(get_session),
-    page: int = Query(default=1, ge=1),
+    page: int = Query(default=1, ge=1, le=10000),
     page_size: int = Query(default=20, ge=1, le=50),
     status: Literal["draft", "active", "paused", "archived"] | None = None,
 ) -> WorkflowPage:
@@ -200,7 +200,7 @@ async def versions(
     workflow_id: UUID,
     member: Membership = Depends(membership),
     session: AsyncSession = Depends(get_session),
-    page: int = Query(default=1, ge=1),
+    page: int = Query(default=1, ge=1, le=10000),
 ) -> dict:
     await workflows.get_workflow(session, member, workflow_id)
     rows = await session.scalars(

@@ -94,7 +94,7 @@ async def start_import(
 async def list_imports(
     member: Membership = Depends(membership),
     session: AsyncSession = Depends(get_session),
-    page: int = Query(1, ge=1),
+    page: int = Query(1, ge=1, le=10000),
 ) -> dict:
     condition = ImportJob.organization_id == member.organization_id
     rows = await session.scalars(
@@ -129,7 +129,7 @@ async def rows(
     request: Request,
     member: Membership = Depends(membership),
     session: AsyncSession = Depends(get_session),
-    page: int = Query(1, ge=1),
+    page: int = Query(1, ge=1, le=10000),
     status: Literal["inserted", "invalid", "duplicate"] | None = None,
 ) -> dict:
     await get_import(session, member, job_id)

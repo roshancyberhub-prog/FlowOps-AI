@@ -16,7 +16,7 @@ router = APIRouter(prefix="/leads", tags=["leads"])
 async def list_leads(
     search: str = Query(default="", max_length=200),
     status: LeadStatus | None = None,
-    page: int = Query(default=1, ge=1),
+    page: int = Query(default=1, ge=1, le=10000),
     page_size: int = Query(default=25, ge=1, le=100),
     member: Membership = Depends(membership),
     session: AsyncSession = Depends(get_session),

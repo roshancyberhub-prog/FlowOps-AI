@@ -63,7 +63,7 @@ async def run_workflow(
 async def list_executions(
     member: Membership = Depends(membership),
     session: AsyncSession = Depends(get_session),
-    page: int = Query(default=1, ge=1),
+    page: int = Query(default=1, ge=1, le=10000),
     page_size: int = Query(default=25, ge=1, le=100),
     status: ExecutionStatus | None = None,
     workflow_id: UUID | None = None,
@@ -105,7 +105,7 @@ async def steps(
     execution_id: UUID,
     member: Membership = Depends(membership),
     session: AsyncSession = Depends(get_session),
-    page: int = Query(default=1, ge=1),
+    page: int = Query(default=1, ge=1, le=10000),
 ) -> dict:
     await get_execution(session, member, execution_id)
     rows = await session.scalars(
@@ -155,7 +155,7 @@ async def retry(
 async def approvals(
     member: Membership = Depends(membership),
     session: AsyncSession = Depends(get_session),
-    page: int = Query(default=1, ge=1),
+    page: int = Query(default=1, ge=1, le=10000),
     status: Literal["pending", "approved", "rejected", "expired", "cancelled"] | None = None,
 ) -> dict:
     conditions = [ApprovalRequest.organization_id == member.organization_id]

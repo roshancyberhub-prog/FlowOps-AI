@@ -14,6 +14,11 @@ test("import, score, review and simulate protected outreach through separate wor
   test.setTimeout(180000);
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
+  // The deliberate hold makes the recorded real UI readable; assertions synchronize the app.
+  const checkpoint = async (options: Parameters<typeof page.screenshot>[0]) => {
+    await page.screenshot(options);
+    await page.waitForTimeout(1200);
+  };
   await page.setViewportSize({ width: 1440, height: 1100 });
   await page.goto("/login");
   await page
@@ -86,7 +91,7 @@ test("import, score, review and simulate protected outreach through separate wor
   await expect(page.getByTestId("import-invalid")).toHaveText("1");
   await expect(page.getByTestId("import-duplicates")).toHaveText("1");
   await expect(page.locator("tbody tr")).toHaveCount(4);
-  await page.screenshot({
+  await checkpoint({
     path: testInfo.outputPath("csv-import-report.png"),
     fullPage: true,
   });
@@ -105,7 +110,7 @@ test("import, score, review and simulate protected outreach through separate wor
   await expect
     .poll(() => page.evaluate(() => document.documentElement.scrollWidth))
     .toBeLessThanOrEqual(390);
-  await page.screenshot({
+  await checkpoint({
     path: testInfo.outputPath("csv-import-mobile.png"),
     fullPage: true,
   });
@@ -145,7 +150,7 @@ test("import, score, review and simulate protected outreach through separate wor
   );
   expect(first).toBeTruthy();
   expect(second).toBeTruthy();
-  await page.screenshot({
+  await checkpoint({
     path: testInfo.outputPath("mock-outreach-approvals.png"),
     fullPage: true,
   });
@@ -173,7 +178,7 @@ test("import, score, review and simulate protected outreach through separate wor
     .getByRole("button", { name: "Save draft revision", exact: true })
     .click();
   await expect(page.getByRole("status")).toContainText("Draft revision saved.");
-  await page.screenshot({
+  await checkpoint({
     path: testInfo.outputPath("reviewed-mock-draft.png"),
     fullPage: true,
   });
@@ -215,7 +220,10 @@ test("import, score, review and simulate protected outreach through separate wor
       exact: true,
     }),
   ).toBeVisible();
-  await page.screenshot({
+  await page
+    .getByText("Mock receipt · No external email was sent.", { exact: true })
+    .scrollIntoViewIfNeeded();
+  await checkpoint({
     path: testInfo.outputPath("mock-outreach-completed.png"),
     fullPage: true,
   });
@@ -223,7 +231,7 @@ test("import, score, review and simulate protected outreach through separate wor
   await expect
     .poll(() => page.evaluate(() => document.documentElement.scrollWidth))
     .toBeLessThanOrEqual(390);
-  await page.screenshot({
+  await checkpoint({
     path: testInfo.outputPath("mock-outreach-mobile.png"),
     fullPage: true,
   });
@@ -237,6 +245,20 @@ test("import, score, review and simulate protected outreach through separate wor
     page.getByRole("row").filter({ hasText: "buyer-one@example.com" }),
   ).toContainText("80/100");
   await page.setViewportSize({ width: 1440, height: 1100 });
+  await page.getByRole("button", { name: "Buyer One", exact: true }).click();
+  await page
+    .getByRole("region", { name: "Lead score", exact: true })
+    .scrollIntoViewIfNeeded();
+  await expect(
+    page.getByText("All configured required fields are present.", {
+      exact: true,
+    }),
+  ).toBeVisible();
+  await checkpoint({
+    path: testInfo.outputPath("outreach-score-reasons.png"),
+    fullPage: true,
+  });
+  await page.getByRole("button", { name: "Close", exact: true }).click();
   await page.getByRole("link", { name: "Integrations", exact: true }).click();
   await page.getByLabel("Name", { exact: true }).fill("Inbound verification");
   await page.getByLabel("Provider", { exact: true }).selectOption("webhook");
@@ -301,7 +323,10 @@ test("import, score, review and simulate protected outreach through separate wor
   await expect(
     connection.getByText("browser:lead:001", { exact: true }),
   ).toBeVisible({ timeout: 10000 });
-  await page.screenshot({
+  await connection
+    .getByText("browser:lead:001", { exact: true })
+    .scrollIntoViewIfNeeded();
+  await checkpoint({
     path: testInfo.outputPath("signed-webhook-history.png"),
     fullPage: true,
   });
@@ -318,7 +343,7 @@ test("import, score, review and simulate protected outreach through separate wor
   await expect(page.getByText("100%", { exact: true })).toBeVisible();
   await page.getByText("View exact daily values", { exact: true }).click();
   await expect(page.getByRole("table").locator("tbody tr")).toHaveCount(7);
-  await page.screenshot({
+  await checkpoint({
     path: testInfo.outputPath("analytics-overview.png"),
     fullPage: true,
   });
@@ -326,7 +351,7 @@ test("import, score, review and simulate protected outreach through separate wor
   await expect
     .poll(() => page.evaluate(() => document.documentElement.scrollWidth))
     .toBeLessThanOrEqual(390);
-  await page.screenshot({
+  await checkpoint({
     path: testInfo.outputPath("analytics-mobile.png"),
     fullPage: true,
   });
@@ -368,7 +393,8 @@ test("import, score, review and simulate protected outreach through separate wor
   ]);
   expect(retrySteps[0].error_code).toBe("DEMO_TRANSIENT_FAILURE");
   await expect(page.getByText("Failed", { exact: true })).toHaveCount(1);
-  await page.screenshot({
+  await page.getByText("Failed", { exact: true }).scrollIntoViewIfNeeded();
+  await checkpoint({
     path: testInfo.outputPath("mock-provider-retry-history.png"),
     fullPage: true,
   });
@@ -442,8 +468,17 @@ test("import, score, review and simulate protected outreach through separate wor
   await expect(
     page.getByRole("button", { name: "Approve and continue", exact: true }),
   ).toHaveCount(0);
-  await page.screenshot({
+  await checkpoint({
     path: testInfo.outputPath("viewer-cannot-approve.png"),
+    fullPage: true,
+  });
+  await page
+    .getByLabel("Workspace", { exact: true })
+    .selectOption({ label: "Viewer separate workspace" });
+  await page.goto(`/executions/${retryRun.id}`);
+  await expect(page.getByRole("alert")).toContainText("Execution not found.");
+  await checkpoint({
+    path: testInfo.outputPath("cross-workspace-denied.png"),
     fullPage: true,
   });
   await viewer.close();

@@ -9,7 +9,7 @@ jobs:
     runs-on: ubuntu-latest
     services:
       postgres:
-        image: postgres:16
+        image: postgres:16@sha256:1beaa3084eee2676f20a9cd9928f0bf2c5bf674f8e49f81017912183d377c61c
         env:
           POSTGRES_USER: flowops
           POSTGRES_PASSWORD: flowops
@@ -19,7 +19,7 @@ jobs:
           --health-cmd "pg_isready -U flowops -d flowops_test"
           --health-interval 5s --health-timeout 5s --health-retries 10
       redis:
-        image: redis:7-alpine
+        image: redis:7-alpine@sha256:8da19c7399dca900c6822a1cf30f9d2285585e2c4b457ff4095b0f4500054d3f
         ports: ["6379:6379"]
         options: >-
           --health-cmd "redis-cli ping"
@@ -40,6 +40,8 @@ jobs:
       - run: uv sync --frozen
       - run: uv run ruff check .
       - run: uv run ruff format --check .
+      - run: uv run ruff check ../../scripts --config pyproject.toml
+      - run: uv run ruff format --check ../../scripts --config pyproject.toml
       - run: uv run mypy app
       - name: Audit locked Python runtime dependencies
         run: |
@@ -93,8 +95,9 @@ jobs:
         env:
           FLOWOPS_DOMAIN: demo.example.com
         run: |
-          docker compose -f docker-compose.yml -f deployment/compose.production.yml config --quiet
-          docker run --rm -e FLOWOPS_DOMAIN=demo.example.com -v "$PWD/deployment/Caddyfile:/etc/caddy/Caddyfile:ro" caddy:2-alpine caddy validate --config /etc/caddy/Caddyfile
+          python3 scripts/setup-env.py --production-domain demo.example.com
+          FLOWOPS_PRODUCTION=1 bash scripts/compose.sh config --quiet
+          docker run --rm -e FLOWOPS_DOMAIN=demo.example.com -v "$PWD/deployment/Caddyfile:/etc/caddy/Caddyfile:ro" caddy:2-alpine@sha256:eb4d35b7452d1ab6171fbdbe8d9275b2301dad6dad92115d91e19fb9b24d510f caddy validate --config /etc/caddy/Caddyfile
       - name: Verify isolated PostgreSQL backup and restore
         working-directory: .
         run: RESTORE_DRILL=1 bash scripts/verify-restore.sh

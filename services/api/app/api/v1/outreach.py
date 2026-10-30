@@ -45,7 +45,7 @@ async def list_drafts(
     lead_id: UUID,
     member: Membership = Depends(membership),
     session: AsyncSession = Depends(get_session),
-    page: int = Query(1, ge=1),
+    page: int = Query(1, ge=1, le=10000),
 ) -> dict:
     await get_lead(session, member.organization_id, lead_id)
     conditions = [
@@ -129,7 +129,7 @@ async def deliveries(
     session: AsyncSession = Depends(get_session),
     execution_id: UUID | None = None,
     draft_id: UUID | None = None,
-    page: int = Query(1, ge=1),
+    page: int = Query(1, ge=1, le=10000),
 ) -> dict:
     conditions = [EmailDelivery.organization_id == member.organization_id]
     if execution_id:
@@ -157,7 +157,7 @@ async def draft_workflows(
     lead_id: UUID,
     member: Membership = Depends(membership),
     session: AsyncSession = Depends(get_session),
-    page: int = Query(1, ge=1),
+    page: int = Query(1, ge=1, le=10000),
 ) -> dict:
     await get_lead(session, member.organization_id, lead_id)
     conditions = [

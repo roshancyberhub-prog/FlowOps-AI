@@ -43,19 +43,6 @@ async def overview(
         WorkflowExecution.created_at >= start,
         WorkflowExecution.created_at <= timestamp,
     )
-    count_rows = (
-        await session.execute(
-            select(WorkflowExecution.status, func.count())
-            .where(
-                WorkflowExecution.organization_id == org,
-                WorkflowExecution.created_at >= start,
-                WorkflowExecution.created_at <= timestamp,
-            )
-            .group_by(WorkflowExecution.status)
-        )
-    ).all()
-    counts = {status: count for status, count in count_rows}
-    succeeded, failed = counts.get("succeeded", 0), counts.get("failed", 0)
     day = cast(func.timezone("UTC", WorkflowExecution.created_at), Date)
     rows = (
         await session.execute(
@@ -72,9 +59,12 @@ async def overview(
     for index in range(7):
         date = (start + timedelta(days=index)).date().isoformat()
         buckets[date] = {"date": date, "succeeded": 0, "failed": 0, "other": 0}
+    counts: dict[str, int] = {}
     for date_value, status, count in rows:
+        counts[status] = counts.get(status, 0) + count
         key = status if status in {"succeeded", "failed"} else "other"
         buckets[date_value.isoformat()][key] += count
+    succeeded, failed = counts.get("succeeded", 0), counts.get("failed", 0)
     duration = await session.scalar(
         select(func.avg(WorkflowExecution.active_duration_ms)).where(
             WorkflowExecution.organization_id == org,
