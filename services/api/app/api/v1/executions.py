@@ -10,7 +10,9 @@ from app.db.session import get_session
 from app.models import (
     ApprovalRequest,
     ExecutionStep,
+    ImportJob,
     Membership,
+    WebhookDelivery,
     WorkerHeartbeat,
     WorkflowExecution,
 )
@@ -222,9 +224,39 @@ async def execution_health(
     last_seen = await session.scalar(
         select(WorkerHeartbeat.last_seen).where(WorkerHeartbeat.worker_name == "dispatcher")
     )
+    counts = await session.execute(
+        select(WorkflowExecution.status, func.count())
+        .where(WorkflowExecution.organization_id == member.organization_id)
+        .group_by(WorkflowExecution.status)
+    )
+    statuses = {status: count for status, count in counts}
+    oldest = await session.scalar(
+        select(func.min(WorkflowExecution.next_run_at)).where(
+            WorkflowExecution.organization_id == member.organization_id,
+            WorkflowExecution.status.in_(["queued", "running", "retrying"]),
+            WorkflowExecution.next_run_at < now(),
+        )
+    )
+    imports = await session.scalar(
+        select(func.count())
+        .select_from(ImportJob)
+        .where(
+            ImportJob.organization_id == member.organization_id,
+            ImportJob.status.in_(["queued", "running", "retrying"]),
+        )
+    )
+    deliveries = await session.execute(
+        select(WebhookDelivery.status, func.count())
+        .where(WebhookDelivery.organization_id == member.organization_id)
+        .group_by(WebhookDelivery.status)
+    )
     return {
         "status": "operational"
         if last_seen and (now() - last_seen).total_seconds() < 30
         else "unavailable",
         "last_dispatch_at": last_seen,
+        "oldest_due_seconds": round((now() - oldest).total_seconds()) if oldest else 0,
+        "executions_by_status": statuses,
+        "pending_imports": imports or 0,
+        "webhooks_by_status": {status: count for status, count in deliveries},
     }

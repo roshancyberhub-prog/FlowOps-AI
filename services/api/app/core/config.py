@@ -11,7 +11,9 @@ class Settings(BaseSettings):
     database_url: PostgresDsn
     redis_url: RedisDsn
     web_origin: str = "http://localhost:3000"
-    session_lifetime_seconds: int = 3600
+    session_lifetime_seconds: int = Field(default=3600, ge=300, le=86400)
+    allow_public_registration: bool = False
+    demo_retry_failure: bool = False
     ai_provider: Literal["disabled", "mock"] = "disabled"
     email_provider: Literal["disabled", "mock"] = "disabled"
     max_step_attempts: int = Field(default=3, ge=1, le=5)

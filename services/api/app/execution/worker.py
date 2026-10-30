@@ -5,7 +5,7 @@ from uuid import UUID
 
 from celery import Celery
 from celery.signals import setup_logging
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool
@@ -16,6 +16,7 @@ from app.db.base import now
 from app.execution.engine import finish, process_execution
 from app.execution.triggers import schedule_due
 from app.models import (
+    AccessToken,
     ApprovalRequest,
     ExecutionStep,
     ImportJob,
@@ -48,6 +49,7 @@ celery_app.conf.update(
     beat_schedule={
         "dispatch-outbox": {"task": "flowops.dispatch", "schedule": 3.0},
         "dispatch-webhooks": {"task": "flowops.webhooks", "schedule": 5.0},
+        "clean-expired-sessions": {"task": "flowops.maintenance", "schedule": 300.0},
     },
 )
 
@@ -220,3 +222,25 @@ def webhooks() -> None:
         asyncio.run(dispatch_webhooks(worker_sessions()))
     except Exception:
         logging.getLogger("flowops.worker").error("webhook_dispatch_failed")
+
+
+async def cleanup_expired_sessions(factory: async_sessionmaker) -> None:
+    async with factory() as session:
+        tokens = (
+            select(AccessToken.__table__.c.token)
+            .where(
+                AccessToken.__table__.c.created_at
+                < now() - timedelta(seconds=settings.session_lifetime_seconds)
+            )
+            .limit(1000)
+        )
+        await session.execute(delete(AccessToken).where(AccessToken.__table__.c.token.in_(tokens)))
+        await session.commit()
+
+
+@celery_app.task(name="flowops.maintenance")
+def maintenance() -> None:
+    try:
+        asyncio.run(cleanup_expired_sessions(worker_sessions()))
+    except Exception:
+        logging.getLogger("flowops.worker").error("session_cleanup_failed")

@@ -2,10 +2,14 @@ import { createHmac } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { expect, test } from "@playwright/test";
 
-test.use({ video: "on" });
+test.use({
+  video: { mode: "on", size: { width: 1440, height: 1100 } },
+  viewport: { width: 1440, height: 1100 },
+});
 
 test("import, score, review and simulate protected outreach through separate workers", async ({
   page,
+  browser,
 }, testInfo) => {
   test.setTimeout(180000);
   const errors: string[] = [];
@@ -48,6 +52,7 @@ test("import, score, review and simulate protected outreach through separate wor
   await expect(
     page.getByRole("status", { name: "Workflow update" }),
   ).toHaveText("Version 1 published.");
+  const outreachWorkflowId = page.url().split("/").at(-1)!;
   await page.getByRole("link", { name: "CSV imports", exact: true }).click();
   const csv =
     "Full Name,Email,Company,Job Title,Industry,Company Size,Website\n" +
@@ -325,5 +330,122 @@ test("import, score, review and simulate protected outreach through separate wor
     path: testInfo.outputPath("analytics-mobile.png"),
     fullPage: true,
   });
+  const buyer = (
+    await (
+      await page.request.get("/api/v1/leads?search=buyer-one@example.com", {
+        headers,
+      })
+    ).json()
+  ).items[0];
+  const retry = await page.request.post(
+    `/api/v1/workflows/${outreachWorkflowId}/test-runs`,
+    {
+      headers: { ...headers, "Idempotency-Key": crypto.randomUUID() },
+      data: { lead_id: buyer.id },
+    },
+  );
+  expect(retry.status()).toBe(202);
+  const retryRun = await retry.json();
+  await page.setViewportSize({ width: 1440, height: 1100 });
+  await page.goto(`/executions/${retryRun.id}`);
+  await expect(page.getByTestId("execution-status")).toHaveText(
+    "Waiting for approval",
+    { timeout: 60000 },
+  );
+  const retrySteps = (
+    await (
+      await page.request.get(`/api/v1/executions/${retryRun.id}/steps`, {
+        headers,
+      })
+    ).json()
+  ).items.filter(
+    (step: { node_type: string }) =>
+      step.node_type === "action.generate_email_draft",
+  );
+  expect(retrySteps.map((step: { status: string }) => step.status)).toEqual([
+    "failed",
+    "succeeded",
+  ]);
+  expect(retrySteps[0].error_code).toBe("DEMO_TRANSIENT_FAILURE");
+  await expect(page.getByText("Failed", { exact: true })).toHaveCount(1);
+  await page.screenshot({
+    path: testInfo.outputPath("mock-provider-retry-history.png"),
+    fullPage: true,
+  });
+  const review = (
+    await (
+      await page.request.get("/api/v1/approvals?status=pending", { headers })
+    ).json()
+  ).items.find(
+    (approval: { execution_id: string }) =>
+      approval.execution_id === retryRun.id,
+  );
+  expect(review).toBeTruthy();
+  const viewer = await browser.newContext();
+  const viewerEmail = `viewer-${Date.now()}@example.com`;
+  const password = "Fictional-Viewer-Passphrase-42";
+  expect(
+    (
+      await viewer.request.post("http://localhost:3000/api/v1/auth/register", {
+        data: { email: viewerEmail, password, display_name: "Demo Viewer" },
+      })
+    ).status(),
+  ).toBe(201);
+  expect(
+    (
+      await viewer.request.post(
+        "http://localhost:3000/api/v1/auth/session/login",
+        { form: { username: viewerEmail, password } },
+      )
+    ).status(),
+  ).toBe(204);
+  await page
+    .getByRole("link", { name: "Team & workspace", exact: true })
+    .click();
+  await page.getByLabel("Member email", { exact: true }).fill(viewerEmail);
+  await page.getByLabel("Access role", { exact: true }).selectOption("viewer");
+  await page.getByRole("button", { name: "Add member", exact: true }).click();
+  await expect(
+    page.getByRole("row").filter({ hasText: viewerEmail }),
+  ).toBeVisible();
+  const denied = await viewer.request.post(
+    `http://localhost:3000/api/v1/approvals/${review.id}/approve`,
+    {
+      headers,
+      data: { revision: review.revision, payload_hash: review.payload_hash },
+    },
+  );
+  expect(denied.status()).toBe(403);
+  const separate = await viewer.request.post(
+    "http://localhost:3000/api/v1/organizations",
+    { data: { name: "Viewer separate workspace" } },
+  );
+  expect(separate.status()).toBe(201);
+  expect(
+    (
+      await viewer.request.get(
+        `http://localhost:3000/api/v1/executions/${retryRun.id}`,
+        { headers: { "X-Organization-ID": (await separate.json()).id } },
+      )
+    ).status(),
+  ).toBe(404);
+  await page.getByRole("button", { name: "Sign out", exact: true }).click();
+  await expect(
+    page.getByRole("heading", { name: "Welcome back", exact: true }),
+  ).toBeVisible();
+  // Use the independently authenticated viewer session to show actual read-only controls.
+  await page.context().addCookies(await viewer.cookies());
+  await page.goto("/approvals");
+  await expect(
+    page.getByRole("heading", { name: "Review email draft", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Approve and continue", exact: true }),
+  ).toHaveCount(0);
+  await page.screenshot({
+    path: testInfo.outputPath("viewer-cannot-approve.png"),
+    fullPage: true,
+  });
+  await viewer.close();
   expect(errors).toEqual([]);
 });

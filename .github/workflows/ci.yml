@@ -41,6 +41,10 @@ jobs:
       - run: uv run ruff check .
       - run: uv run ruff format --check .
       - run: uv run mypy app
+      - name: Audit locked Python runtime dependencies
+        run: |
+          uv export --frozen --no-dev --no-emit-project --quiet -o /tmp/flowops-requirements.txt
+          uvx --from pip-audit==2.10.1 pip-audit -r /tmp/flowops-requirements.txt --require-hashes --disable-pip --progress-spinner off
       - run: uv run alembic upgrade head
       - run: uv run alembic check
       - run: uv run pytest -q
@@ -78,11 +82,22 @@ jobs:
         working-directory: .
         run: |
           python3 scripts/setup-env.py
+          printf '\nDEMO_RETRY_FAILURE=true\n' >> .env
           docker compose config --quiet
           docker compose up --build --wait --wait-timeout 240
       - run: npx playwright test
         env:
           E2E_EXTERNAL: "1"
+      - name: Validate production configuration without deploying
+        working-directory: .
+        env:
+          FLOWOPS_DOMAIN: demo.example.com
+        run: |
+          docker compose -f docker-compose.yml -f deployment/compose.production.yml config --quiet
+          docker run --rm -e FLOWOPS_DOMAIN=demo.example.com -v "$PWD/deployment/Caddyfile:/etc/caddy/Caddyfile:ro" caddy:2-alpine caddy validate --config /etc/caddy/Caddyfile
+      - name: Verify isolated PostgreSQL backup and restore
+        working-directory: .
+        run: RESTORE_DRILL=1 bash scripts/verify-restore.sh
       - uses: actions/upload-artifact@v4
         if: always()
         with:

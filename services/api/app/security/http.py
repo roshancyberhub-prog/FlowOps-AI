@@ -24,7 +24,7 @@ class RequestGuard:
             await self.app(scope, receive, send)
             return
         status, code, message = 0, "", ""
-        auth = scope["path"].startswith("/api/v1/auth/")
+        auth = scope["path"] in {"/api/v1/auth/register", "/api/v1/auth/session/login"}
         host = scope.get("client", ("unknown", 0))[0]
         try:
             async with Redis.from_url(str(get_settings().redis_url), socket_timeout=2) as redis:

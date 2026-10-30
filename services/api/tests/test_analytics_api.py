@@ -69,6 +69,9 @@ async def test_overview_uses_scoped_database_counts_and_zero_filled_utc_days():
         assert len(data["recent_executions"]) == 2
         listed = (await client.get("/api/v1/workflows", headers=headers)).json()["items"][0]
         assert listed["execution_count"] == 3 and listed["last_execution_at"]
+        health = (await client.get("/api/v1/execution-health", headers=headers)).json()
+        assert health["executions_by_status"] == {"succeeded": 2, "failed": 1}
+        assert health["pending_imports"] == 0 and health["webhooks_by_status"] == {}
         other = (
             await client.post("/api/v1/organizations", json={"name": "Separate analytics"})
         ).json()
@@ -79,3 +82,29 @@ async def test_overview_uses_scoped_database_counts_and_zero_filled_utc_days():
         ).json()
         assert isolated["executions"] == isolated["active_leads"] == 0
         assert isolated["recent_executions"] == []
+
+
+async def test_maintenance_removes_expired_sessions_and_keeps_current_session():
+    from app.execution.worker import cleanup_expired_sessions
+    from app.models import AccessToken, Membership
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        await account(client, f"maintenance-{uuid4()}@example.com")
+        org = (
+            await client.post("/api/v1/organizations", json={"name": "Session maintenance"})
+        ).json()
+        expired = str(uuid4())
+        async with session_factory() as session:
+            member = await session.scalar(
+                select(Membership).where(Membership.organization_id == UUID(org["id"]))
+            )
+            session.add(
+                AccessToken(
+                    token=expired, user_id=member.user_id, created_at=now() - timedelta(days=2)
+                )
+            )
+            await session.commit()
+        await cleanup_expired_sessions(session_factory)
+        async with session_factory() as session:
+            assert await session.get(AccessToken, expired) is None
+        assert (await client.get("/api/v1/users/me")).status_code == 200

@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.ai.providers import Completion, get_provider
 from app.ai.schemas import DraftContent, Qualification
+from app.core.config import get_settings
 from app.execution.errors import NodeFailure
 from app.models import EmailDraft, WorkflowExecution
 
@@ -65,7 +66,20 @@ async def generate_draft(
         )
         if lead.get(key) is not None
     }
+    settings = get_settings()
     provider = get_provider()
+    if (
+        settings.demo_retry_failure
+        and settings.app_env != "production"
+        and settings.ai_provider == "mock"
+        and run.mode == "test"
+        and run.node_attempt == 1
+    ):
+        raise NodeFailure(
+            "DEMO_TRANSIENT_FAILURE",
+            "Explicit demo fault: the mock provider is temporarily unavailable. Retrying safely.",
+            transient=True,
+        )
     try:
         qualified = await provider.qualify(facts)
         qualification = Qualification.model_validate(qualified.content)

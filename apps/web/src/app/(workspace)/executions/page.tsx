@@ -29,11 +29,14 @@ export default function ExecutionsPage() {
   const health = useQuery({
     queryKey: ["execution-health", organization.id],
     queryFn: () =>
-      api<{ status: string; last_dispatch_at: string | null }>(
-        "/execution-health",
-        {},
-        organization.id,
-      ),
+      api<{
+        status: string;
+        last_dispatch_at: string | null;
+        oldest_due_seconds: number;
+        pending_imports: number;
+        executions_by_status: Record<string, number>;
+        webhooks_by_status: Record<string, number>;
+      }>("/execution-health", {}, organization.id),
     refetchInterval: 10000,
   });
   return (
@@ -75,6 +78,32 @@ export default function ExecutionsPage() {
         {health.data?.status ??
           (health.error ? "Unable to check" : "Checking…")}
       </p>
+      {health.data && (
+        <div className="mb-5 grid gap-3 sm:grid-cols-3">
+          <div className="panel p-4">
+            <p className="text-xs text-slate-500">Runs queued / retrying</p>
+            <p className="mt-2 text-xl font-semibold">
+              {(health.data.executions_by_status.queued ?? 0) +
+                (health.data.executions_by_status.retrying ?? 0)}
+            </p>
+          </div>
+          <div className="panel p-4">
+            <p className="text-xs text-slate-500">Oldest due work</p>
+            <p className="mt-2 text-xl font-semibold">
+              {health.data.oldest_due_seconds} seconds
+            </p>
+          </div>
+          <div className="panel p-4">
+            <p className="text-xs text-slate-500">
+              Webhooks needing investigation
+            </p>
+            <p className="mt-2 text-xl font-semibold">
+              {(health.data.webhooks_by_status.failed ?? 0) +
+                (health.data.webhooks_by_status.uncertain ?? 0)}
+            </p>
+          </div>
+        </div>
+      )}
       <section className="panel min-w-0 overflow-hidden">
         <QueryFeedback
           pending={runs.isPending}

@@ -1,9 +1,10 @@
 import logging
+import time
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from uuid import uuid4
 
-from fastapi import FastAPI, Request
+from fastapi import Depends, FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from redis.asyncio import Redis
 from sqlalchemy import text
@@ -22,7 +23,7 @@ from app.api.v1.workflows import router as workflows_router
 from app.core.config import get_settings
 from app.core.logging import configure_logging
 from app.db.session import engine
-from app.security.auth import UserCreate, UserRead, backend, users
+from app.security.auth import UserCreate, UserRead, backend, registration_allowed, users
 from app.security.http import RequestGuard
 
 configure_logging()
@@ -37,7 +38,11 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 app = FastAPI(title="FlowOps AI", version="0.1.0", lifespan=lifespan)
 app.add_middleware(RequestGuard)
-app.include_router(users.get_register_router(UserRead, UserCreate), prefix="/api/v1/auth")
+app.include_router(
+    users.get_register_router(UserRead, UserCreate),
+    prefix="/api/v1/auth",
+    dependencies=[Depends(registration_allowed)],
+)
 app.include_router(users.get_auth_router(backend), prefix="/api/v1/auth/session")
 app.include_router(analytics_router, prefix="/api/v1")
 app.include_router(organizations_router, prefix="/api/v1")
@@ -91,6 +96,7 @@ async def request_context(
     request: Request,
     call_next: Callable[[Request], Awaitable[Response]],
 ) -> Response:
+    started = time.monotonic()
     request.state.request_id = str(uuid4())
     response: Response | None = None
     if request.method not in {"GET", "HEAD", "OPTIONS"}:
@@ -117,9 +123,11 @@ async def request_context(
     logging.getLogger("flowops").info(
         "request_completed",
         extra={
+            "route": getattr(request.scope.get("route"), "path", "_unmatched"),
             "method": request.method,
             "path": request.url.path,
             "status": response.status_code,
+            "duration_ms": round((time.monotonic() - started) * 1000, 2),
             "request_id": request.state.request_id,
         },
     )
