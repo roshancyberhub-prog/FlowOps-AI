@@ -304,5 +304,26 @@ test("import, score, review and simulate protected outreach through separate wor
   await expect
     .poll(() => page.evaluate(() => document.documentElement.scrollWidth))
     .toBeLessThanOrEqual(390);
+  await page.setViewportSize({ width: 1440, height: 1100 });
+  await page.getByRole("link", { name: "Overview", exact: true }).click();
+  await expect(page.getByTestId("metric-leads")).toHaveText("2");
+  await expect(page.getByTestId("metric-workflows")).toHaveText("1");
+  await expect(page.getByTestId("metric-executions")).toHaveText("2");
+  await expect(page.getByTestId("metric-approvals")).toHaveText("0");
+  await expect(page.getByText("100%", { exact: true })).toBeVisible();
+  await page.getByText("View exact daily values", { exact: true }).click();
+  await expect(page.getByRole("table").locator("tbody tr")).toHaveCount(7);
+  await page.screenshot({
+    path: testInfo.outputPath("analytics-overview.png"),
+    fullPage: true,
+  });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect
+    .poll(() => page.evaluate(() => document.documentElement.scrollWidth))
+    .toBeLessThanOrEqual(390);
+  await page.screenshot({
+    path: testInfo.outputPath("analytics-mobile.png"),
+    fullPage: true,
+  });
   expect(errors).toEqual([]);
 });

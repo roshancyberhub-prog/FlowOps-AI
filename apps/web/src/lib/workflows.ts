@@ -23,6 +23,8 @@ export type Workflow = {
   current_version_id: string | null;
   version_number: number;
   revision: number;
+  execution_count: number;
+  last_execution_at: string | null;
   updated_at: string;
 };
 export type WorkflowVersion = {

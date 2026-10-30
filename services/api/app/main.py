@@ -10,6 +10,7 @@ from sqlalchemy import text
 from starlette.exceptions import HTTPException
 from starlette.responses import JSONResponse, Response
 
+from app.api.v1.analytics import router as analytics_router
 from app.api.v1.executions import router as executions_router
 from app.api.v1.imports import router as imports_router
 from app.api.v1.integrations import router as integrations_router
@@ -38,6 +39,7 @@ app = FastAPI(title="FlowOps AI", version="0.1.0", lifespan=lifespan)
 app.add_middleware(RequestGuard)
 app.include_router(users.get_register_router(UserRead, UserCreate), prefix="/api/v1/auth")
 app.include_router(users.get_auth_router(backend), prefix="/api/v1/auth/session")
+app.include_router(analytics_router, prefix="/api/v1")
 app.include_router(organizations_router, prefix="/api/v1")
 app.include_router(imports_router, prefix="/api/v1")
 app.include_router(integrations_router, prefix="/api/v1")

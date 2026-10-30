@@ -43,6 +43,8 @@ class WorkflowRead(BaseModel):
     current_version_id: UUID | None
     version_number: int
     revision: int
+    execution_count: int = 0
+    last_execution_at: datetime | None = None
     created_at: datetime
     updated_at: datetime
 

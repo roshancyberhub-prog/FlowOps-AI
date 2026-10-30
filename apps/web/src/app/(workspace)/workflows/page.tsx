@@ -135,6 +135,8 @@ export default function Workflows() {
                   <th>Workflow</th>
                   <th>Status</th>
                   <th>Version</th>
+                  <th>Runs</th>
+                  <th>Last run</th>
                   <th>Updated</th>
                   <th>
                     <span className="sr-only">Actions</span>
@@ -158,6 +160,12 @@ export default function Workflows() {
                       >
                         {workflow.status}
                       </span>
+                    </td>
+                    <td>{workflow.execution_count ?? 0}</td>
+                    <td className="text-xs text-slate-500">
+                      {workflow.last_execution_at
+                        ? new Date(workflow.last_execution_at).toLocaleString()
+                        : "No runs yet"}
                     </td>
                     <td className="text-xs text-slate-500">
                       {workflow.version_number

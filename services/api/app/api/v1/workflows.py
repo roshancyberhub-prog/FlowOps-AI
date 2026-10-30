@@ -6,7 +6,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_session
-from app.models import Membership, Workflow, WorkflowVersion
+from app.models import Membership, Workflow, WorkflowExecution, WorkflowVersion
 from app.schemas.workflows import (
     Revision,
     VersionRead,
@@ -69,8 +69,24 @@ async def list_workflows(
         .offset((page - 1) * page_size)
         .limit(page_size)
     )
+    items = [WorkflowRead.model_validate(row) for row in rows]
+    if items:
+        metrics = await session.execute(
+            select(
+                WorkflowExecution.workflow_id, func.count(), func.max(WorkflowExecution.created_at)
+            )
+            .where(
+                WorkflowExecution.organization_id == member.organization_id,
+                WorkflowExecution.workflow_id.in_([item.id for item in items]),
+            )
+            .group_by(WorkflowExecution.workflow_id)
+        )
+        by_id = {identifier: (count, latest) for identifier, count, latest in metrics}
+        for item in items:
+            if item.id in by_id:
+                item.execution_count, item.last_execution_at = by_id[item.id]
     return WorkflowPage(
-        items=[WorkflowRead.model_validate(row) for row in rows],
+        items=items,
         total=total or 0,
         page=page,
         page_size=page_size,

@@ -7,7 +7,7 @@ Status reflects verified behavior only. Follow CHATGPT.md in milestone order.
 - [x] Milestone 2: validated graph registry, drafts, immutable versions, templates, React Flow editor.
 - [x] Milestone 3: Celery/Redis, durable dispatch, persisted steps, retries, cancellation, approval checkpoints.
 - [x] Milestone 4: bounded CSV imports, reproducible ICP scoring, structured AI adapters, approval inbox, explicit mock email.
-- [ ] Milestone 5: real integration, signed and deduplicated inbound webhooks, outbound attempts and retries.
+- [x] Milestone 5: real integration, signed and deduplicated inbound webhooks, outbound attempts and retries.
 - [ ] Milestone 6: end-to-end verification, hardening, deployment, monitoring, recovery documentation, recorded demo.
 
 ## Verified checkpoints
@@ -31,7 +31,7 @@ The execution acceptance run verifies an actual Celery worker completes a backgr
 - Execution listing/detail/timeline, run dialog with lead search, approval review and authenticated dispatch health.
 - Lead-created triggers share the lead transaction; scheduled triggers persist their next due time and coalesce missed intervals.
 
-AI and email nodes now support explicitly labelled mock providers or fail as disabled; no live provider is connected. Inbound/outbound webhooks are not implemented. No public deployment or provider delivery is verified.
+AI and email nodes now support explicitly labelled mock providers or fail as disabled; no live provider is connected. Signed inbound and tracked outgoing webhooks are implemented. No public deployment or provider delivery is verified.
 
 ## Milestone 4 checkpoint: CSV and scoring
 
@@ -39,10 +39,14 @@ Run 40741008963 passed 72 backend tests, PostgreSQL migrations/schema checks and
 
 The baseline ICP is configurable and versioned. Workflow publication pins a profile UUID; editing score inputs clears the current result. Imports are bounded to 512 KiB and 2000 records and run in transactional batches of 100. Existing and in-file duplicates are skipped, mapped row reports persist, and raw sources are cleared on completion/failure or after seven days. See SCORING.md and IMPORTS.md.
 
-Milestone 4 acceptance passed run 40747693463: 82 backend tests and all five browser journeys. The full flow publishes an outreach template, imports two fitting leads plus invalid/duplicate records, scores the leads, pauses for email review, edits a draft, rejects the stale review, approves the current revision, records exactly one simulated receipt and rejects the other run without delivery. Backend tests also verify revoked approvers, changed lead facts, strict output schemas and uncertain external failures. Reviewed desktop/mobile screenshots are in the corresponding CI artifacts. A subsequent view-cache refresh patch is undergoing its own CI run. The source instructions explicitly authorize a safe mock if credentials are unavailable; no OpenAI key was found. Live AI calls, real email and production deployment are not configured or claimed.
+Milestone 4 acceptance passed run 40747693463: 82 backend tests and all five browser journeys. The full flow publishes an outreach template, imports two fitting leads plus invalid/duplicate records, scores the leads, pauses for email review, edits a draft, rejects the stale review, approves the current revision, records exactly one simulated receipt and rejects the other run without delivery. Backend tests also verify revoked approvers, changed lead facts, strict output schemas and uncertain external failures. Reviewed desktop/mobile screenshots are in the corresponding CI artifacts. The subsequent view-cache refresh passed its CI run. The source instructions explicitly authorize a safe mock if credentials are unavailable; no OpenAI key was found. Live AI calls, real email and production deployment are not configured or claimed.
 
 ## Development and publication
 
 The repository was initially empty. All supplied instructions were read before implementation. Python 3.12, Node 24, uv and npm are available. This local execution environment cannot start PostgreSQL under a non-root user, and the local Chromium download failed; actual database/browser verification comes from GitHub Actions. Local checks cover Python unit/API tests with Redis, Ruff, Mypy, TypeScript, ESLint and the production frontend build.
 
 Feature work is saved on `feature/workflows`, `feature/execution` and `feature/lead-operations`. Automatic approval review rejected advancing the default branch because the workflow work was scoped to a separate branch. `main` retains the verified foundation; merging and a public deployment have not been performed. Continue feature-branch work and request explicit merge approval only after preparing the complete reviewable result.
+
+## Milestone 5 acceptance
+
+[Run 41027662222](https://github.com/roshancyberhub-prog/FlowOps-AI/actions/runs/41027662222) passed 108 backend tests, the real public GitHub repository adapter check, migration/schema/reversal checks, dependency audit, and all five Docker-backed browser journeys. Signed ingress, duplicate rejection, forged signatures, mobile integration history, bounded outgoing retries and lost-worker uncertainty are verified. The import/outreach journey records a browser video. See INTEGRATIONS.md.
