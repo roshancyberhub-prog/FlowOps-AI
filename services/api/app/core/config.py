@@ -1,7 +1,7 @@
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import Field, PostgresDsn, RedisDsn
+from pydantic import Field, PostgresDsn, RedisDsn, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -16,6 +16,8 @@ class Settings(BaseSettings):
     email_provider: Literal["disabled", "mock"] = "disabled"
     max_step_attempts: int = Field(default=3, ge=1, le=5)
     execution_max_active_seconds: int = Field(default=600, ge=30, le=3600)
+    webhook_signing_key: SecretStr = SecretStr("")
+    webhook_allowed_hosts: str = ""
     approval_ttl_hours: int = Field(default=72, ge=1, le=168)
 
 

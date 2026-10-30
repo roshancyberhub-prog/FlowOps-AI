@@ -12,6 +12,7 @@ from starlette.responses import JSONResponse, Response
 
 from app.api.v1.executions import router as executions_router
 from app.api.v1.imports import router as imports_router
+from app.api.v1.integrations import router as integrations_router
 from app.api.v1.leads import router as leads_router
 from app.api.v1.organizations import router as organizations_router
 from app.api.v1.outreach import router as outreach_router
@@ -39,6 +40,7 @@ app.include_router(users.get_register_router(UserRead, UserCreate), prefix="/api
 app.include_router(users.get_auth_router(backend), prefix="/api/v1/auth/session")
 app.include_router(organizations_router, prefix="/api/v1")
 app.include_router(imports_router, prefix="/api/v1")
+app.include_router(integrations_router, prefix="/api/v1")
 app.include_router(leads_router, prefix="/api/v1")
 app.include_router(workflows_router, prefix="/api/v1")
 app.include_router(executions_router, prefix="/api/v1")

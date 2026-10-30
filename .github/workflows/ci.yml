@@ -44,6 +44,15 @@ jobs:
       - run: uv run alembic upgrade head
       - run: uv run alembic check
       - run: uv run pytest -q
+      - name: Verify real public GitHub integration (read only)
+        run: |
+          uv run python - <<'PYCODE'
+          import asyncio
+          from app.integrations.github import repository
+          result = asyncio.run(repository("octocat", "Hello-World"))
+          assert result["full_name"] == "octocat/Hello-World"
+          print("Public GitHub repository metadata verified:", result["full_name"])
+          PYCODE
       - run: uv run alembic downgrade base
       - run: uv run alembic upgrade head
   web:
@@ -68,7 +77,7 @@ jobs:
       - name: Validate and start the documented Docker stack
         working-directory: .
         run: |
-          cp .env.example .env
+          python3 scripts/setup-env.py
           docker compose config --quiet
           docker compose up --build --wait --wait-timeout 240
       - run: npx playwright test

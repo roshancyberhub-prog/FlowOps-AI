@@ -45,7 +45,10 @@ celery_app.conf.update(
     },
     task_soft_time_limit=120,
     task_time_limit=150,
-    beat_schedule={"dispatch-outbox": {"task": "flowops.dispatch", "schedule": 3.0}},
+    beat_schedule={
+        "dispatch-outbox": {"task": "flowops.dispatch", "schedule": 3.0},
+        "dispatch-webhooks": {"task": "flowops.webhooks", "schedule": 5.0},
+    },
 )
 
 
@@ -207,3 +210,13 @@ def import_csv(job_id: str) -> None:
         asyncio.run(process_import(worker_sessions(), UUID(job_id)))
     except Exception:
         logging.getLogger("flowops.worker").error("import_task_failed", extra={"import_id": job_id})
+
+
+@celery_app.task(name="flowops.webhooks")
+def webhooks() -> None:
+    from app.integrations.worker import dispatch_webhooks
+
+    try:
+        asyncio.run(dispatch_webhooks(worker_sessions()))
+    except Exception:
+        logging.getLogger("flowops.worker").error("webhook_dispatch_failed")
