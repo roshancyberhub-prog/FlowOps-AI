@@ -3,6 +3,8 @@ from httpx import ASGITransport, AsyncClient
 
 from app.main import app
 
+pytestmark = pytest.mark.usefixtures("isolate_rate_limit_keys")
+
 
 async def test_cross_site_mutation_is_rejected():
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
@@ -35,6 +37,11 @@ async def test_large_request_is_rejected_before_parsing():
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         response = await client.post("/api/v1/leads", content=b"x" * (1024 * 1024 + 1))
     assert response.status_code == 413
+
+
+async def test_workflows_require_authentication():
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        assert (await client.get("/api/v1/workflows")).status_code == 401
 
 
 async def test_authentication_rate_limit_is_enforced():
@@ -85,3 +92,38 @@ async def test_viewer_can_read_but_cannot_modify_or_grant_permissions():
                     json={"role": "admin"},
                 )
             ).status_code == 403
+
+
+@pytest.mark.integration
+async def test_auth_attempt_throttle_cannot_prevent_session_revocation():
+    from uuid import uuid4
+
+    from tests.test_leads import account
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        email = f"logout-{uuid4()}@example.com"
+        await account(client, email)
+        for _ in range(8):
+            assert (
+                await client.post(
+                    "/api/v1/auth/session/login", data={"username": email, "password": "invalid"}
+                )
+            ).status_code == 400
+        assert (
+            await client.post(
+                "/api/v1/auth/session/login", data={"username": email, "password": "invalid"}
+            )
+        ).status_code == 429
+        assert (await client.post("/api/v1/auth/session/logout")).status_code == 204
+        assert (await client.get("/api/v1/users/me")).status_code == 401
+
+
+async def test_production_registration_is_closed_unless_operator_enables_it(monkeypatch):
+    from app.core.config import get_settings
+
+    monkeypatch.setattr(get_settings(), "app_env", "production")
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.post("/api/v1/auth/register", json={})
+        assert response.status_code == 403
+        monkeypatch.setattr(get_settings(), "allow_public_registration", True)
+        assert (await client.post("/api/v1/auth/register", json={})).status_code == 422

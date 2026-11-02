@@ -70,6 +70,9 @@ class LeadRead(BaseModel):
     status: str
     score: int
     score_reasons: list
+    score_profile_id: UUID | None
+    score_profile_version: int | None
+    scored_at: datetime | None
     created_at: datetime
     updated_at: datetime
 

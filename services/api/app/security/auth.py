@@ -1,7 +1,7 @@
 from collections.abc import AsyncIterator
 from uuid import UUID
 
-from fastapi import Depends
+from fastapi import Depends, HTTPException
 from fastapi_users import BaseUserManager, FastAPIUsers, UUIDIDMixin, schemas
 from fastapi_users.authentication import AuthenticationBackend, CookieTransport
 from fastapi_users.authentication.strategy.db import DatabaseStrategy
@@ -65,3 +65,9 @@ transport = CookieTransport(
 backend = AuthenticationBackend(name="session", transport=transport, get_strategy=get_strategy)
 users = FastAPIUsers[User, UUID](get_user_manager, [backend])
 current_user = users.current_user(active=True)
+
+
+async def registration_allowed() -> None:
+    settings = get_settings()
+    if settings.app_env == "production" and not settings.allow_public_registration:
+        raise HTTPException(403, "Public registration is closed. Contact the workspace operator.")

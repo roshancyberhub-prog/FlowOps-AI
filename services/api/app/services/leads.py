@@ -5,6 +5,7 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.execution.triggers import lead_created
 from app.models import AuditLog, Lead, Membership
 from app.schemas.leads import LeadCreate, LeadPage, LeadPatch, LeadRead
 
@@ -23,13 +24,13 @@ def audit(
     )
 
 
-async def get_lead(session: AsyncSession, organization_id: UUID, lead_id: UUID) -> Lead:
-    lead = await session.scalar(
-        select(Lead).where(
-            Lead.id == lead_id,
-            Lead.organization_id == organization_id,
-        )
-    )
+async def get_lead(
+    session: AsyncSession, organization_id: UUID, lead_id: UUID, lock: bool = False
+) -> Lead:
+    query = select(Lead).where(Lead.id == lead_id, Lead.organization_id == organization_id)
+    if lock:
+        query = query.with_for_update()
+    lead = await session.scalar(query)
     if lead is None:
         raise HTTPException(404, "Lead not found.")
     return lead
@@ -81,15 +82,30 @@ async def save_lead(
     lead_id: UUID | None = None,
 ) -> Lead:
     if lead_id:
-        lead = await get_lead(session, member.organization_id, lead_id)
-        for key, value in data.model_dump(mode="json", exclude_unset=True).items():
+        lead = await get_lead(session, member.organization_id, lead_id, lock=True)
+        changes = data.model_dump(mode="json", exclude_unset=True)
+        inputs_changed = any(
+            key
+            in {"email", "company", "job_title", "industry", "company_size", "website", "country"}
+            and getattr(lead, key) != value
+            for key, value in changes.items()
+        )
+        for key, value in changes.items():
             setattr(lead, key, value)
+        if inputs_changed:
+            lead.score = 0
+            lead.score_reasons = []
+            lead.score_profile_id = None
+            lead.score_profile_version = None
+            lead.scored_at = None
     else:
         lead = Lead(organization_id=member.organization_id, **data.model_dump(mode="json"))
         session.add(lead)
     try:
         await session.flush()
         audit(session, member, "lead.updated" if lead_id else "lead.created", lead.id, request_id)
+        if lead_id is None:
+            await lead_created(session, lead, request_id)
         await session.commit()
     except IntegrityError as exc:
         await session.rollback()

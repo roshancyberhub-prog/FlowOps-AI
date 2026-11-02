@@ -3,6 +3,8 @@ from httpx import ASGITransport, AsyncClient
 
 from app.main import app
 
+pytestmark = pytest.mark.usefixtures("isolate_rate_limit_keys")
+
 
 async def account(client, email):
     response = await client.post(

@@ -62,7 +62,10 @@ export type Lead = {
   source: string | null;
   status: string;
   score: number;
-  score_reasons: string[];
+  score_reasons: { rule: string; points: number; reason: string }[];
+  score_profile_id: string | null;
+  score_profile_version: number | null;
+  scored_at: string | null;
   created_at: string;
   updated_at: string;
 };

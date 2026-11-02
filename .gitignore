@@ -13,3 +13,7 @@ test-results/
 playwright-report/
 *.log
 *.tsbuildinfo
+
+backups/
+*.dump
+*.backup

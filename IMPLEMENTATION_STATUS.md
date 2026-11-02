@@ -4,41 +4,62 @@ Status reflects verified behavior only. Follow CHATGPT.md in milestone order.
 
 - [x] Milestone 0: read supplied requirements; confirm empty private repository and available runtimes.
 - [x] Milestone 1: FastAPI, PostgreSQL migrations, maintained authentication, organizations, lead CRUD, Next.js, CI, Docker; verify persistence and tenant isolation.
-- [ ] Milestone 2: validated graph registry, drafts, immutable versions, templates, React Flow editor.
-- [ ] Milestone 3: Celery/Redis, durable dispatch, persisted steps, retries, cancellation, approval checkpoints.
-- [ ] Milestone 4: bounded CSV imports, reproducible ICP scoring, structured AI adapters, approval inbox, explicit mock email.
-- [ ] Milestone 5: real integration, signed and deduplicated inbound webhooks, outbound attempts and retries.
+- [x] Milestone 2: validated graph registry, drafts, immutable versions, templates, React Flow editor.
+- [x] Milestone 3: Celery/Redis, durable dispatch, persisted steps, retries, cancellation, approval checkpoints.
+- [x] Milestone 4: bounded CSV imports, reproducible ICP scoring, structured AI adapters, approval inbox, explicit mock email.
+- [x] Milestone 5: real integration, signed and deduplicated inbound webhooks, outbound attempts and retries.
 - [ ] Milestone 6: end-to-end verification, hardening, deployment, monitoring, recovery documentation, recorded demo.
 
-## Implementation sequence
+## Verified checkpoints
 
-1. Establish the API with PostgreSQL migrations, session authentication and organization-scoped leads. Test unauthenticated, viewer, and cross-organization requests.
-2. Add the Next.js sign-in, workspace selection and lead management interface; verify the complete lead CRUD journey in a browser.
-3. Extend the tested foundation one feature at a time in milestone order. Commit and publish each verified feature.
+| Milestone | Evidence |
+|---|---|
+| Foundation | Run 40664524685: PostgreSQL/Redis, migrations and two browser journeys |
+| Workflow design | Run 40673713422: 36 backend tests and three browser journeys |
+| Execution engine | Run 40736331765: 54 backend tests, migrations, Docker worker/scheduler and all four browser journeys |
+| Lead operations with explicit mock providers | Run 40747693463: 82 backend tests and all five browser journeys, including the complete import-to-reviewed-mock-receipt flow |
 
-## Initial inspection
+The execution acceptance run verifies an actual Celery worker completes a background run, persists its steps across reload, pauses at a generic human checkpoint and fully completes after authorized approval. The strengthened browser assertion checks the overall run plus every completed step. Screenshot review confirms the completed desktop/mobile states. PostgreSQL tests cover concurrent duplicate delivery, bounded retries, stale external intents, broker recovery, checkpoint expiry, cancellation after interruption, durable delays, lead-created triggers, interval coalescing and pause behavior. All are green.
 
-The GitHub repository was empty on 2026-10-28. Node 24 and Python 3.12 are available. PostgreSQL, Redis and Docker were not preinstalled. GitHub connector access permits repository writes; native HTTPS git lacks credentials, so publication uses the connected GitHub Git Data API. No deployment or external provider has been configured or verified.
+## Implemented execution behavior
 
-## Foundation backend checkpoint
+- Durable execution/outbox transaction; organization-scoped idempotency and immutable version pinning.
+- Celery step tasks, explicit registered handlers, finite timeouts and per-node attempts, exponential backoff with jitter, failure history and dead letters.
+- Duplicate/lost-message reconciliation and expired-lease recovery. An interrupted external intent becomes uncertain and cannot be retried blindly.
+- Conditions, lead validation, duplicate lookup, status changes, internal notifications, durable delay and result records.
+- Test-mode simulation, current membership checks, cancellation, bounded manual retries, hash/revision-bound approvals, rejection and expiry.
+- Execution listing/detail/timeline, run dialog with lead search, approval review and authenticated dispatch health.
+- Lead-created triggers share the lead transaction; scheduled triggers persist their next due time and coalesce missed intervals.
 
-Implemented: FastAPI Users database sessions (login/logout), workspace creation and membership roles, scoped lead CRUD/search/pagination, normalized duplicate protection, audit events, request limits, Redis rate limiting, origin checks and health endpoints. The initial Alembic migration defines six application tables.
+AI and email nodes now support explicitly labelled mock providers or fail as disabled; no live provider is connected. Signed inbound and tracked outgoing webhooks are implemented. No public deployment or provider delivery is verified.
 
-Verified locally: 17 tests without PostgreSQL, Ruff lint/format, Mypy, dependency lock consistency, and offline PostgreSQL migration generation. Redis was run alongside the tests. GitHub Actions run 40662313670 passed the original 17 backend tests, PostgreSQL migration upgrade/check/downgrade/upgrade, Ruff and Mypy. The foundation milestone passed its final Docker/browser acceptance checks in run 40664524685.
+## Milestone 4 checkpoint: CSV and scoring
 
+Run 40741008963 passed 72 backend tests, PostgreSQL migrations/schema checks and all five Docker-backed browser journeys. The scoring journey calculates a lead score with six reasons and saves a new immutable profile version. The CSV journey uploads a mapped file, waits for the separate worker, inspects inserted/invalid/duplicate counts, filters and reloads the report, and verifies mobile geometry and persisted leads. Backend tests cover concurrent import messages, batch rollback/retry and raw-upload expiry.
 
-## Foundation interface checkpoint
+The baseline ICP is configurable and versioned. Workflow publication pins a profile UUID; editing score inputs clears the current result. Imports are bounded to 512 KiB and 2000 records and run in transactional batches of 100. Existing and in-file duplicates are skipped, mapped row reports persist, and raw sources are cleared on completion/failure or after seven days. See SCORING.md and IMPORTS.md.
 
-Implemented: Next.js sign-in/registration, workspace creation/switching, live-data overview, searchable/paginated lead CRUD with archive/restore, membership management, and restricted audit history. Frontend lint, TypeScript, production build and npm production audit pass locally. GitHub Actions run 40664524685 passed both browser journeys and started the complete Docker stack successfully. A local Chromium download failed, so browser results must come from CI rather than a claimed local run.
+Milestone 4 acceptance passed run 40747693463: 82 backend tests and all five browser journeys. The full flow publishes an outreach template, imports two fitting leads plus invalid/duplicate records, scores the leads, pauses for email review, edits a draft, rejects the stale review, approves the current revision, records exactly one simulated receipt and rejects the other run without delivery. Backend tests also verify revoked approvers, changed lead facts, strict output schemas and uncertain external failures. Reviewed desktop/mobile screenshots are in the corresponding CI artifacts. The subsequent view-cache refresh passed its CI run. The source instructions explicitly authorize a safe mock if credentials are unavailable; no OpenAI key was found. Live AI calls, real email and production deployment are not configured or claimed.
 
+## Development and publication
 
-## Milestone 1 acceptance
+The repository was initially empty. All supplied instructions were read before implementation. Python 3.12, Node 24, uv and npm are available. This local execution environment cannot start PostgreSQL under a non-root user, and the local Chromium download failed; actual database/browser verification comes from GitHub Actions. Local checks cover Python unit/API tests with Redis, Ruff, Mypy, TypeScript, ESLint and the production frontend build.
 
-Run 40664524685 verified 19 backend tests, migration upgrade/check/downgrade/upgrade, Ruff, Mypy, frontend lint/type checks, production npm audit, Docker Compose configuration/build/readiness, and two Playwright browser tests. The complete browser journey includes account/workspace creation, lead persistence after reload, duplicate validation, edit/archive/restore, separate workspace views and logout. Desktop/mobile screenshots are retained in the run artifacts. A local standalone-server smoke test also returned 200 for the login page and stylesheet.
+Feature work is saved on `feature/workflows`, `feature/execution`, `feature/lead-operations`, `feature/integrations` and `feature/release-readiness`. The complete proposal is PR #1. Automatic approval review rejected advancing the default branch because the workflow work was scoped to a separate branch. `main` retains the verified foundation; merging and a public deployment have not been performed. Continue feature-branch work and request explicit merge approval only after preparing the complete reviewable result.
 
-Next: Milestone 2 graph schema/registry, validation, draft/version APIs, templates and React Flow. Execution is a later milestone and will not be represented as working before the worker exists.
+## Milestone 5 acceptance
 
+[Run 41027662222](https://github.com/roshancyberhub-prog/FlowOps-AI/actions/runs/41027662222) passed 108 backend tests, the real public GitHub repository adapter check, migration/schema/reversal checks, dependency audit, and all five Docker-backed browser journeys. Signed ingress, duplicate rejection, forged signatures, mobile integration history, bounded outgoing retries and lost-worker uncertainty are verified. The import/outreach journey records a browser video. See INTEGRATIONS.md.
 
-## Responsive finish gate
+## Milestone 6: code and release preparation
 
-GitHub Actions run 40667370206 passed the backend suite, Docker stack and browser journeys after an additional mobile geometry assertion. A 390px viewport now has a 390px document width; the lead table scrolls inside its own container. The root cause was an absolutely positioned screen-reader label without a containing block inside the scroll region. Request logging now uses structured method/path/status/request IDs and omits query values; its new privacy regression test passes locally.
+- [x] API-backed seven-day analytics, workflow counts/last run, responsive chart and exact-value table.
+- [x] Private independent development/production settings, digest-pinned containers, HTTPS/trusted-proxy profile and closed production registration.
+- [x] Python/npm audits, migrations/reversal/schema checks, native lint/types/build and actual PostgreSQL/Redis/Celery/Chromium verification.
+- [x] Queue/latency signals, restricted JSON logging, monitoring export and documented retention/erasure limits.
+- [x] Isolated dump/restore drill with matching business counts and schema revision.
+- [x] Recorded fictional workflow including score reasons, approval/mock receipt, retry, viewer denial and cross-workspace access denial.
+- [ ] Explicit approval to merge the release PR into main.
+- [ ] Approved public Docker host/domain, actual deployment, host-specific smoke/performance checks and alert delivery.
+
+Run [41034252027](https://github.com/roshancyberhub-prog/FlowOps-AI/actions/runs/41034252027) passed 118 backend tests, all five browser journeys, both dependency audits, the real public GitHub adapter, pinned Docker builds, production configuration validation and the isolated restore drill. The corresponding PR run also passed. Final code commit 28c0f395 passed 119 backend tests and all five browser journeys in run 41035904654 and PR run 41035912555, including the malformed-path logging regression. Both dependency audits, production validation and the restore drill passed. The completed demo is committed under docs/demo/. No public deployment, live AI call or real email delivery is claimed.

@@ -3,6 +3,7 @@ import { expect, test } from "@playwright/test";
 test("register, persist leads, edit, archive, restore and isolate workspaces", async ({
   page,
 }, testInfo) => {
+  await page.setViewportSize({ width: 1440, height: 1100 });
   const suffix = `${Date.now()}-${testInfo.workerIndex}`;
   const workspace = `Demo operations ${suffix}`;
   const email = `buyer-${suffix}@example.com`;
@@ -34,12 +35,56 @@ test("register, persist leads, edit, archive, restore and isolate workspaces", a
   await page.getByLabel("Full name *", { exact: true }).fill("Demo Buyer");
   await page.getByLabel("Work email *", { exact: true }).fill(email);
   await page.getByLabel("Company", { exact: true }).fill("Example Company");
+  await page.getByLabel("Job title", { exact: true }).fill("Founder");
+  await page.getByLabel("Industry", { exact: true }).fill("Software");
+  await page.getByLabel("Company size", { exact: true }).fill("11-50");
+  await page.getByLabel("Website", { exact: true }).fill("https://example.com");
   await page.getByRole("button", { name: "Save lead", exact: true }).click();
   await expect(page.getByRole("status")).toHaveText("Lead added.");
   await page.reload();
   await expect(
     page.getByRole("button", { name: "Demo Buyer", exact: true }),
   ).toBeVisible();
+  await page.getByRole("button", { name: "Demo Buyer", exact: true }).click();
+  await page
+    .getByRole("button", {
+      name: "Calculate with current profile",
+      exact: true,
+    })
+    .click();
+  await expect(page.getByRole("region", { name: "Lead score" })).toContainText(
+    "80 / 100",
+  );
+  await expect(page.getByRole("region", { name: "Lead score" })).toContainText(
+    "Profile version 1",
+  );
+  await page
+    .getByRole("region", { name: "Lead score" })
+    .scrollIntoViewIfNeeded();
+  await expect(
+    page.getByText("All configured required fields are present.", {
+      exact: true,
+    }),
+  ).toBeVisible();
+  await page.screenshot({
+    path: testInfo.outputPath("lead-score-reasons.png"),
+    fullPage: true,
+  });
+  await page.getByRole("button", { name: "Close", exact: true }).click();
+  await page
+    .getByRole("link", { name: "Scoring profiles", exact: true })
+    .click();
+  await page.getByLabel("Job title match", { exact: true }).fill("5");
+  await page
+    .getByRole("button", { name: "Save new profile version", exact: true })
+    .click();
+  await expect(
+    page.getByRole("heading", {
+      name: "Current profile · Version 2",
+      exact: true,
+    }),
+  ).toBeVisible();
+  await page.getByRole("link", { name: "Leads", exact: true }).click();
   await page
     .getByRole("button", { name: "Edit Demo Buyer", exact: true })
     .click();

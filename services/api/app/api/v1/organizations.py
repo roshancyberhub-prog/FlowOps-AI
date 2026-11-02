@@ -1,14 +1,15 @@
 from typing import Literal
 from uuid import UUID, uuid4
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_session
-from app.models import AuditLog, Membership, Organization, User
+from app.leads.scoring import ScoringConfig
+from app.models import AuditLog, Membership, Organization, ScoringProfile, User
 from app.security.auth import UserRead, current_user
 from app.security.permissions import ADMIN_ROLES, membership, require_role
 from app.services.leads import audit
@@ -78,6 +79,15 @@ async def create_organization(
     org = Organization(name=data.name, slug=str(uuid4()))
     session.add(org)
     await session.flush()
+    session.add(
+        ScoringProfile(
+            organization_id=org.id,
+            version_number=1,
+            name="Baseline ICP",
+            configuration=ScoringConfig().model_dump(mode="json"),
+            created_by=user.id,
+        )
+    )
     member = Membership(organization_id=org.id, user_id=user.id, role="owner")
     session.add(member)
     audit(session, member, "organization.created", org.id, request.state.request_id)
@@ -171,11 +181,9 @@ async def update_member(
 async def audit_history(
     member: Membership = Depends(membership),
     session: AsyncSession = Depends(get_session),
-    page: int = 1,
+    page: int = Query(default=1, ge=1, le=10000),
 ) -> list[dict]:
     require_role(member, ADMIN_ROLES)
-    if page < 1:
-        raise HTTPException(422, "Page must be positive.")
     rows = await session.scalars(
         select(AuditLog)
         .where(AuditLog.organization_id == member.organization_id)

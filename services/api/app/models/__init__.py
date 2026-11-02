@@ -1,19 +1,28 @@
-from datetime import UTC, datetime
+from datetime import datetime
 from uuid import UUID, uuid4
 
 from fastapi_users.db import SQLAlchemyBaseUserTableUUID
 from fastapi_users_db_sqlalchemy.access_token import SQLAlchemyBaseAccessTokenTableUUID
 from sqlalchemy import CheckConstraint, DateTime, ForeignKey, String, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column
 
-
-def now() -> datetime:
-    return datetime.now(UTC)
-
-
-class Base(DeclarativeBase):
-    pass
+from app.db.base import Base, now
+from app.models.execution import ApprovalRequest as ApprovalRequest
+from app.models.execution import ExecutionStep as ExecutionStep
+from app.models.execution import Notification as Notification
+from app.models.execution import OutboxEntry as OutboxEntry
+from app.models.execution import WorkerHeartbeat as WorkerHeartbeat
+from app.models.execution import WorkflowExecution as WorkflowExecution
+from app.models.imports import ImportJob as ImportJob
+from app.models.imports import ImportRow as ImportRow
+from app.models.integrations import Integration as Integration
+from app.models.integrations import WebhookAttempt as WebhookAttempt
+from app.models.integrations import WebhookDelivery as WebhookDelivery
+from app.models.integrations import WebhookEvent as WebhookEvent
+from app.models.outreach import EmailDelivery as EmailDelivery
+from app.models.outreach import EmailDraft as EmailDraft
+from app.models.scoring import ScoringProfile as ScoringProfile
 
 
 class User(SQLAlchemyBaseUserTableUUID, Base):
@@ -68,6 +77,9 @@ class Lead(Base):
     status: Mapped[str] = mapped_column(String(30), default="new", index=True)
     score: Mapped[int] = mapped_column(default=0)
     score_reasons: Mapped[list] = mapped_column(JSONB, default=list)
+    score_profile_id: Mapped[UUID | None] = mapped_column(ForeignKey("scoring_profiles.id"))
+    score_profile_version: Mapped[int | None]
+    scored_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now, index=True)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now, onupdate=now)
 
@@ -81,3 +93,40 @@ class AuditLog(Base):
     resource_id: Mapped[str] = mapped_column(String(100))
     correlation_id: Mapped[str] = mapped_column(String(36))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now, index=True)
+
+
+class Workflow(Base):
+    __tablename__ = "workflows"
+    __table_args__ = (
+        CheckConstraint("status IN ('draft','active','paused','archived')", name="workflow_status"),
+    )
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    organization_id: Mapped[UUID] = mapped_column(ForeignKey("organizations.id"), index=True)
+    name: Mapped[str] = mapped_column(String(150))
+    description: Mapped[str] = mapped_column(String(1000), default="")
+    status: Mapped[str] = mapped_column(String(20), default="draft", index=True)
+    scheduled_next_run_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), index=True
+    )
+    draft_graph: Mapped[dict] = mapped_column(JSONB)
+    current_version_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("workflow_versions.id", use_alter=True, name="fk_workflow_current_version")
+    )
+    version_number: Mapped[int] = mapped_column(default=0)
+    revision: Mapped[int] = mapped_column(default=1)
+    created_by: Mapped[UUID] = mapped_column(ForeignKey("users.id"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=now, onupdate=now, index=True
+    )
+
+
+class WorkflowVersion(Base):
+    __tablename__ = "workflow_versions"
+    __table_args__ = (UniqueConstraint("workflow_id", "version_number"),)
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    workflow_id: Mapped[UUID] = mapped_column(ForeignKey("workflows.id"), index=True)
+    version_number: Mapped[int]
+    graph_definition: Mapped[dict] = mapped_column(JSONB)
+    created_by: Mapped[UUID] = mapped_column(ForeignKey("users.id"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)

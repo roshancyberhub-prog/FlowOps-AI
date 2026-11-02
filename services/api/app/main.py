@@ -1,28 +1,32 @@
 import logging
+import time
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from uuid import uuid4
 
-from fastapi import FastAPI, Request
+from fastapi import Depends, FastAPI, Request
 from fastapi.exceptions import RequestValidationError
-from pythonjsonlogger.json import JsonFormatter
 from redis.asyncio import Redis
 from sqlalchemy import text
 from starlette.exceptions import HTTPException
 from starlette.responses import JSONResponse, Response
 
+from app.api.v1.analytics import router as analytics_router
+from app.api.v1.executions import router as executions_router
+from app.api.v1.imports import router as imports_router
+from app.api.v1.integrations import router as integrations_router
 from app.api.v1.leads import router as leads_router
 from app.api.v1.organizations import router as organizations_router
+from app.api.v1.outreach import router as outreach_router
+from app.api.v1.scoring import router as scoring_router
+from app.api.v1.workflows import router as workflows_router
 from app.core.config import get_settings
+from app.core.logging import configure_logging
 from app.db.session import engine
-from app.security.auth import UserCreate, UserRead, backend, users
+from app.security.auth import UserCreate, UserRead, backend, registration_allowed, users
 from app.security.http import RequestGuard
 
-handler = logging.StreamHandler()
-handler.setFormatter(JsonFormatter("%(asctime)s %(levelname)s %(name)s %(message)s"))
-logging.getLogger("flowops").addHandler(handler)
-logging.getLogger("flowops").setLevel(logging.INFO)
-logging.getLogger("flowops").propagate = False
+configure_logging()
 
 
 @asynccontextmanager
@@ -34,10 +38,21 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 app = FastAPI(title="FlowOps AI", version="0.1.0", lifespan=lifespan)
 app.add_middleware(RequestGuard)
-app.include_router(users.get_register_router(UserRead, UserCreate), prefix="/api/v1/auth")
+app.include_router(
+    users.get_register_router(UserRead, UserCreate),
+    prefix="/api/v1/auth",
+    dependencies=[Depends(registration_allowed)],
+)
 app.include_router(users.get_auth_router(backend), prefix="/api/v1/auth/session")
+app.include_router(analytics_router, prefix="/api/v1")
 app.include_router(organizations_router, prefix="/api/v1")
+app.include_router(imports_router, prefix="/api/v1")
+app.include_router(integrations_router, prefix="/api/v1")
 app.include_router(leads_router, prefix="/api/v1")
+app.include_router(workflows_router, prefix="/api/v1")
+app.include_router(executions_router, prefix="/api/v1")
+app.include_router(scoring_router, prefix="/api/v1")
+app.include_router(outreach_router, prefix="/api/v1")
 
 
 def error(
@@ -58,6 +73,14 @@ def error(
 
 @app.exception_handler(HTTPException)
 async def http_error(request: Request, exc: HTTPException) -> JSONResponse:
+    if isinstance(exc.detail, dict):
+        return error(
+            request,
+            exc.status_code,
+            str(exc.detail.get("code", f"HTTP_{exc.status_code}")),
+            str(exc.detail.get("message", exc.detail.get("reason", "Request failed."))),
+            exc.detail.get("details", []),
+        )
     message = exc.detail if isinstance(exc.detail, str) else "Request failed."
     return error(request, exc.status_code, f"HTTP_{exc.status_code}", message)
 
@@ -73,6 +96,7 @@ async def request_context(
     request: Request,
     call_next: Callable[[Request], Awaitable[Response]],
 ) -> Response:
+    started = time.monotonic()
     request.state.request_id = str(uuid4())
     response: Response | None = None
     if request.method not in {"GET", "HEAD", "OPTIONS"}:
@@ -99,9 +123,11 @@ async def request_context(
     logging.getLogger("flowops").info(
         "request_completed",
         extra={
+            "route": getattr(request.scope.get("route"), "path", "_unmatched"),
             "method": request.method,
-            "path": request.url.path,
+            "path": getattr(request.scope.get("route"), "path", "_unmatched"),
             "status": response.status_code,
+            "duration_ms": round((time.monotonic() - started) * 1000, 2),
             "request_id": request.state.request_id,
         },
     )

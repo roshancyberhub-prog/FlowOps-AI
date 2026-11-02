@@ -9,7 +9,7 @@ jobs:
     runs-on: ubuntu-latest
     services:
       postgres:
-        image: postgres:16
+        image: postgres:16@sha256:1beaa3084eee2676f20a9cd9928f0bf2c5bf674f8e49f81017912183d377c61c
         env:
           POSTGRES_USER: flowops
           POSTGRES_PASSWORD: flowops
@@ -19,7 +19,7 @@ jobs:
           --health-cmd "pg_isready -U flowops -d flowops_test"
           --health-interval 5s --health-timeout 5s --health-retries 10
       redis:
-        image: redis:7-alpine
+        image: redis:7-alpine@sha256:8da19c7399dca900c6822a1cf30f9d2285585e2c4b457ff4095b0f4500054d3f
         ports: ["6379:6379"]
         options: >-
           --health-cmd "redis-cli ping"
@@ -40,10 +40,25 @@ jobs:
       - run: uv sync --frozen
       - run: uv run ruff check .
       - run: uv run ruff format --check .
+      - run: uv run ruff check ../../scripts --config pyproject.toml
+      - run: uv run ruff format --check ../../scripts --config pyproject.toml
       - run: uv run mypy app
+      - name: Audit locked Python runtime dependencies
+        run: |
+          uv export --frozen --no-dev --no-emit-project --quiet -o /tmp/flowops-requirements.txt
+          uvx --from pip-audit==2.10.1 pip-audit -r /tmp/flowops-requirements.txt --require-hashes --disable-pip --progress-spinner off
       - run: uv run alembic upgrade head
       - run: uv run alembic check
       - run: uv run pytest -q
+      - name: Verify real public GitHub integration (read only)
+        run: |
+          uv run python - <<'PYCODE'
+          import asyncio
+          from app.integrations.github import repository
+          result = asyncio.run(repository("octocat", "Hello-World"))
+          assert result["full_name"] == "octocat/Hello-World"
+          print("Public GitHub repository metadata verified:", result["full_name"])
+          PYCODE
       - run: uv run alembic downgrade base
       - run: uv run alembic upgrade head
   web:
@@ -68,12 +83,24 @@ jobs:
       - name: Validate and start the documented Docker stack
         working-directory: .
         run: |
-          cp .env.example .env
+          python3 scripts/setup-env.py
+          printf '\nDEMO_RETRY_FAILURE=true\n' >> .env
           docker compose config --quiet
           docker compose up --build --wait --wait-timeout 240
       - run: npx playwright test
         env:
           E2E_EXTERNAL: "1"
+      - name: Validate production configuration without deploying
+        working-directory: .
+        env:
+          FLOWOPS_DOMAIN: demo.example.com
+        run: |
+          python3 scripts/setup-env.py --production-domain demo.example.com
+          FLOWOPS_PRODUCTION=1 bash scripts/compose.sh config --quiet
+          docker run --rm -e FLOWOPS_DOMAIN=demo.example.com -v "$PWD/deployment/Caddyfile:/etc/caddy/Caddyfile:ro" caddy:2-alpine@sha256:eb4d35b7452d1ab6171fbdbe8d9275b2301dad6dad92115d91e19fb9b24d510f caddy validate --config /etc/caddy/Caddyfile
+      - name: Verify isolated PostgreSQL backup and restore
+        working-directory: .
+        run: RESTORE_DRILL=1 bash scripts/verify-restore.sh
       - uses: actions/upload-artifact@v4
         if: always()
         with:
